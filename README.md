@@ -1,89 +1,105 @@
-# komitto(コミット)
+# komitto (commit)
 
-`git diff`の情報から、セマンティックなコミットメッセージプロンプトを生成するためのCLIツールです。生成されたプロンプトは自動的にクリップボードにコピーされ、LLMに貼り付けることで、コミットメッセージを作成できます。
+[English](./README.md) | [日本語](./README-ja.md)
 
-## 主な機能
+A CLI tool for generating semantic commit message prompts from `git diff` information. The generated prompt is automatically copied to the clipboard, allowing you to paste it into an LLM to create your commit message.
 
-- ステージングされた変更（`git diff --staged`）を解析
-- 変更内容をLLMが理解しやすいXML形式に変換
-- コミットメッセージ生成用のシステムプロンプトと結合
-- 生成された最終的なプロンプトをクリップボードにコピー
-- 変更に関する追加のコンテキスト（補足情報）をコマンドライン引数で付与する機能
+## Key Features
 
-## インストール
+- Analyzes staged changes (`git diff --staged`)
+- Converts change details into an XML format that is easily understandable by LLMs
+- **LLM API Integration**: Directly calls APIs from providers like OpenAI, Gemini, Anthropic, and Ollama to automatically generate commit messages
+- **Contextual Understanding**: Automatically includes recent commit logs in the prompt to consider project context and style
+- Combines with system prompts specifically designed for commit message generation
+- Copies the final generated prompt to the clipboard
+- Provides functionality to attach additional context about the changes via command-line arguments
+
+## Installation
 
 ```bash
 pip install komitto
 ```
 
-もし開発用にインストールする場合は、以下のコマンドを使用してください。
+For development installation, use the following command:
 
 ```bash
 pip install -e .
 ```
 
-## 使い方
+## Usage
 
-1.  リポジトリで変更を行い、`git add`でファイルをステージングします。
+### Basic Usage (Prompt Generation Mode)
 
-    ```bash
-    git add <変更したファイル>
-    ```
+1. Make changes in a repository and stage files using `git add`.
+2. Run the `komitto` command.
+3. The generated prompt will be copied to your clipboard - simply paste it into ChatGPT or another LLM.
+### AI Automated Generation Mode (Recommended)
 
-2.  `komitto`コマンドを実行します。
-
-    ```bash
-    komitto
-    ```
-
-3.  `✅ プロンプトをクリップボードにコピーしました！` と表示されたら、お使いのLLMのインターフェースにプロンプトを貼り付けてください。
-
-### 追加コンテキストを渡す
-
-変更の意図や特記事項など、プロンプトに含めたい補足情報がある場合は、引数として渡すことができます。
+By configuring API settings in the `komitto.toml` configuration file, the `komitto` command will automatically invoke the API when executed, directly copying the generated commit message to your clipboard.
 
 ```bash
-komitto "この変更は緊急のバグ修正です"
+komitto
+# -> 🤖 AI is currently generating a commit message...
+# -> ✅ The generated message has been copied to your clipboard!
 ```
 
-## 設定ファイルによるカスタマイズ
+### Passing Additional Context
 
-以下のコマンドを実行することで、カレントディレクトリに設定ファイルの雛形（`komitto.toml`）を生成できます。
+If you have supplementary information you want to include in the prompt, such as the purpose behind your changes or any special notes, you can pass it as command-line arguments.
+
+ Example:
+```bash
+komitto "This change is an emergency bug fix"
+```
+
+## Customization via Configuration File
+
+You can generate a template configuration file (`komitto.toml`) for your current directory by running the following command:
 
 ```bash
 komitto init
 ```
 
-プロンプトの内容は、TOML形式の設定ファイルを作成することでカスタマイズ可能です。
-以下の順序で設定ファイルを探索し、見つかった設定がデフォルト設定を上書きします（後勝ち）。
+You can customize the prompt content by creating a TOML-formatted configuration file.
+The system will search for configuration files in the following order, and any found settings will override the default settings (with later configurations taking precedence).
 
-1.  **OSごとのユーザー設定ディレクトリ**（グローバル設定）
-    *   **Windows**: `%APPDATA%\komitto\config.toml`
-        *   例: `C:\Users\<User>\AppData\Roaming\komitto\config.toml`
-    *   **macOS**: `~/Library/Application Support/komitto/config.toml`
-    *   **Linux**: `~/.config/komitto/config.toml`
-2.  **カレントディレクトリ**（プロジェクト固有設定）
-    *   `./komitto.toml`
+1. **OS-specific user configuration directory** (global settings)
+    * **Windows**: `%APPDATA%\komitto\config.toml`
+    * **macOS**: `~/Library/Application Support/komitto/config.toml`
+    * **Linux**: `~/.config/komitto/config.toml`
+2. **Current directory** (project-specific settings)
+    * `./komitto.toml`
 
-### 設定ファイル (`komitto.toml` / `config.toml`) の記述例
+### Example Configuration File Entries (`komitto.toml` / `config.toml`)
 
 ```toml
 [prompt]
-# システムプロンプトの上書き
-# """ で囲むことで改行を含めたテキストを記述できます
+# Overwrite the default system prompt
 system = """
-あなたは関西弁の陽気なエンジニアです。
-コミットメッセージもノリよく生成してください。
-
-形式:
-<Type>: <Emoji> <Title>
+You are a cheerful engineer speaking in Kansai dialect.
 ...
 """
+
+[llm]
+# Set the following parameters when using AI-generated content
+provider = "openai" # Options: "openai", "gemini", "anthropic"
+
+# Model specification
+model = "gpt-5"
+
+# API key (uses environment variables OPENAI_API_KEY, etc. if not specified)
+# api_key = "sk-..." 
+
+# For using Ollama/LM Studio, etc.
+# base_url = "http://localhost:11434/v1"
+
+# Number of previous commit history entries to include in the prompt (default: 5)
+history_limit = 5
 ```
 
-## 仕組み
+## How It Works
 
-1.  `git diff --staged` を実行し、ステージングされたファイルの差分を取得します。
-2.  差分情報を、ファイルパス、関数/クラス名、変更の種類（追加、修正、削除）などを含む構造化されたXML形式に変換します。
-3.  あらかじめ定義されたシステムプロンプト、ユーザーが指定した追加コンテキスト、XML形式の差分情報を結合して、最終的なプロンプTプを生成します。
-4.  生成されたプロンプトをクリップボードにコピーします。
+1.  Executes `git diff --staged` to retrieve differences between staged files.
+2.  Converts the diff information into a structured XML format containing details such as file paths, function/class names, and types of changes (additions, modifications, deletions).
+3.  Combines the predefined system prompt, any user-specified additional context, and the XML-formatted diff information to generate the final prompt.
+4.  Copies the generated prompt to the clipboard.
