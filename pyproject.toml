@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "komitto"
-version = "0.1.1"
+version = "0.1.2"
 description = "A CLI tool that generates semantic Japanese commit message prompts for LLMs from Git diff information."
 readme = "README.md"
 requires-python = ">=3.6"
@@ -19,6 +19,8 @@ classifiers = [
 ]
 dependencies = [
     "pyperclip",
+    "platformdirs",
+    "tomli",
 ]
 
 [project.scripts]
