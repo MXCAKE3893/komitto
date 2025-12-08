@@ -26,6 +26,31 @@ def get_git_diff():
         
     return result.stdout
 
+def get_git_log(limit=5):
+    """直近のコミットメッセージと変更ファイルを取得する"""
+    cmd = [
+        "git", "log", 
+        f"-n {limit}", 
+        "--date=iso", 
+        "--pretty=format:Commit: %h%nDate: %ad%nMessage:%n%B%n[Files]", 
+        "--name-status"
+    ]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+        if result.returncode == 0 and result.stdout:
+            logs = result.stdout.strip()
+            formatted_logs = []
+            for block in logs.split("Commit: "):
+                if not block.strip():
+                    continue
+                formatted_logs.append(f"Commit: {block.strip()}")
+            
+            return "\n\n----------------------------------------\n\n".join(formatted_logs)
+    except Exception:
+        pass
+    return None
+
 def parse_diff_to_xml(diff_content):
     """Git DiffをXML形式に変換する"""
     diff_lines = diff_content.split('\n')
@@ -122,6 +147,7 @@ system = \"\"\"
 # model = "gpt-4o"
 # # api_key = "sk-..." # 省略時は環境変数を使用
 # # base_url = "http://localhost:11434/v1" # Ollamaなどの場合
+# # history_limit = 5 # プロンプトに含める過去のコミット数
 """
     try:
         with open(target_file, "w", encoding="utf-8") as f:
@@ -144,9 +170,20 @@ def main():
     # 設定の読み込み
     config = load_config()
     system_prompt = config["prompt"]["system"]
+    
+    # LLM設定の取得
+    llm_config = config.get("llm", {})
+    history_limit = llm_config.get("history_limit", 5)
 
     # 1. コンテキストの構築
     full_payload = [system_prompt, "\n---\n"]
+    
+    # 直近のコミット履歴を追加
+    recent_logs = get_git_log(limit=history_limit)
+    if recent_logs:
+        full_payload.append("## 📜 直近のコミット履歴（参考情報）")
+        full_payload.append(f"以下の履歴を踏まえて、文脈や形式を考慮してください:\n\n{recent_logs}")
+        full_payload.append("\n---\n")
     
     user_context = " ".join(args.context)
     if user_context:
@@ -163,7 +200,6 @@ def main():
     final_text = "\n".join(full_payload)
 
     # LLM設定がある場合はAPIを呼び出す
-    llm_config = config.get("llm")
     if llm_config and llm_config.get("provider"):
         try:
             print("🤖 AIがコミットメッセージを生成中...")
