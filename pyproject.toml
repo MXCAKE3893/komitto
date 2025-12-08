@@ -21,6 +21,9 @@ dependencies = [
     "pyperclip",
     "platformdirs",
     "tomli",
+    "openai",
+    "google-generativeai",
+    "anthropic",
 ]
 
 [project.scripts]

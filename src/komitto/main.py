@@ -7,6 +7,7 @@ import pyperclip
 from xml.sax.saxutils import escape
 
 from .config import load_config, DEFAULT_SYSTEM_PROMPT
+from .llm import create_llm_client
 
 def get_git_diff():
     """ステージングされた変更を取得する"""
@@ -114,6 +115,13 @@ def init_config():
 system = \"\"\"
 {DEFAULT_SYSTEM_PROMPT.strip()}
 \"\"\"
+
+# [llm]
+# # AI自動生成を使用する場合は以下をコメントアウト解除して設定してください
+# provider = "openai" # "openai", "gemini", "anthropic"
+# model = "gpt-4o"
+# # api_key = "sk-..." # 省略時は環境変数を使用
+# # base_url = "http://localhost:11434/v1" # Ollamaなどの場合
 """
     try:
         with open(target_file, "w", encoding="utf-8") as f:
@@ -154,17 +162,37 @@ def main():
     # 3. 結果の結合
     final_text = "\n".join(full_payload)
 
-    # 4. クリップボードへのコピー
-    try:
-        pyperclip.copy(final_text)
-        print("✅ プロンプトをクリップボードにコピーしました！")
-        if user_context:
-            print(f"📝 付与されたコンテキスト: {user_context}")
-    except pyperclip.PyperclipException:
-        print("⚠️ クリップボードへのコピーに失敗しました。以下の出力を手動でコピーしてください:\n")
-        print(final_text)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+    # LLM設定がある場合はAPIを呼び出す
+    llm_config = config.get("llm")
+    if llm_config and llm_config.get("provider"):
+        try:
+            print("🤖 AIがコミットメッセージを生成中...")
+            client = create_llm_client(llm_config)
+            commit_message = client.generate_commit_message(final_text)
+            
+            # 結果をクリップボードにコピー
+            pyperclip.copy(commit_message)
+            print("\n" + "="*40)
+            print(commit_message)
+            print("="*40 + "\n")
+            print("✅ 生成されたメッセージをクリップボードにコピーしました！")
+        except Exception as e:
+            print(f"Error calling LLM API: {e}", file=sys.stderr)
+            print("⚠️ API呼び出しに失敗しました。プロンプトをコピーします。")
+            pyperclip.copy(final_text)
+            print("✅ プロンプトをクリップボードにコピーしました！")
+    else:
+        # 4. クリップボードへのコピー
+        try:
+            pyperclip.copy(final_text)
+            print("✅ プロンプトをクリップボードにコピーしました！")
+            if user_context:
+                print(f"📝 付与されたコンテキスト: {user_context}")
+        except pyperclip.PyperclipException:
+            print("⚠️ クリップボードへのコピーに失敗しました。以下の出力を手動でコピーしてください:\n")
+            print(final_text)
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()

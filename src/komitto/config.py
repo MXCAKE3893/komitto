@@ -120,9 +120,16 @@ def load_config():
             try:
                 with open(path, "rb") as f:
                     toml_data = tomllib.load(f)
-                    if "prompt" in toml_data:
-                        config["prompt"].update(toml_data["prompt"])
+                    
+                    # 辞書のマージ処理
+                    for key, value in toml_data.items():
+                        if isinstance(value, dict) and key in config and isinstance(config[key], dict):
+                            config[key].update(value)
+                        else:
+                            config[key] = value
+                            
             except Exception as e:
+                # 警告を表示するが処理は続行
                 print(f"Warning: Failed to load config from {path}: {e}", file=sys.stderr)
 
     return config
