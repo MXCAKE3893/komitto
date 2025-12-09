@@ -42,3 +42,17 @@ def get_git_log(limit=5):
     except Exception:
         pass
     return None
+
+def git_commit(message):
+    """メッセージを指定してコミットを実行する"""
+    if not message.strip():
+        print("Error: Commit message is empty.", file=sys.stderr)
+        return False
+
+    cmd = ["git", "commit", "-m", message]
+    try:
+        # ユーザーにgitの出力を直接見せるため、capture_outputはしない
+        subprocess.run(cmd, check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False

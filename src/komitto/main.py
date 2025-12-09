@@ -4,7 +4,7 @@ import pyperclip
 
 from .config import load_config, init_config
 from .llm import create_llm_client
-from .git_utils import get_git_diff, get_git_log
+from .git_utils import get_git_diff, get_git_log, git_commit
 from .editor import launch_editor
 from .prompt import build_prompt
 
@@ -60,11 +60,20 @@ def main():
                     print(commit_message)
                     print("="*40 + "\n")
                     
-                    choice = input("Action [y:採用 / e:編集 / r:再生成 / n:キャンセル]: ").lower().strip()
+                    choice = input("Action [y:採用(コミット) / e:編集 / r:再生成 / n:キャンセル]: ").lower().strip()
                     
                     if choice == 'y':
-                        pyperclip.copy(commit_message)
-                        print("✅ 生成されたメッセージをクリップボードにコピーしました！")
+                        # クリップボードにも一応コピーしておく
+                        try:
+                            pyperclip.copy(commit_message)
+                        except Exception:
+                            pass
+                        
+                        print("🚀 コミットを実行しています...")
+                        if git_commit(commit_message):
+                            print("✅ コミットが完了しました！")
+                        else:
+                            print("⚠️ コミットに失敗しました。メッセージはクリップボードにコピーされています。")
                         return # 終了
                     
                     elif choice == 'e':
