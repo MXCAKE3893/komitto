@@ -7,6 +7,7 @@ from .llm import create_llm_client
 from .git_utils import get_git_diff, get_git_log, git_commit
 from .editor import launch_editor
 from .prompt import build_prompt
+from .i18n import t
 
 def main():
     parser = argparse.ArgumentParser(description="Generate semantic commit prompt for LLMs from git diff.")
@@ -42,7 +43,7 @@ def main():
             
             # 再生成用ループ (r:再生成 が選ばれた場合にここに戻る)
             while True:
-                print("🤖 AIがコミットメッセージを生成中...")
+                print(t("main.generating"))
                 commit_message = client.generate_commit_message(final_text)
                 
                 # 対話モードが無効なら即終了（既存の挙動）
@@ -51,7 +52,7 @@ def main():
                     print("\n" + "="*40)
                     print(commit_message)
                     print("="*40 + "\n")
-                    print("✅ 生成されたメッセージをクリップボードにコピーしました！")
+                    print(t("main.copied_to_clipboard"))
                     break
 
                 # 承認ループ (編集後にここに戻る)
@@ -60,7 +61,7 @@ def main():
                     print(commit_message)
                     print("="*40 + "\n")
                     
-                    choice = input("Action [y:採用(コミット) / e:編集 / r:再生成 / n:キャンセル]: ").lower().strip()
+                    choice = input(t("main.action_prompt")).lower().strip()
                     
                     if choice == 'y':
                         # クリップボードにも一応コピーしておく
@@ -69,11 +70,11 @@ def main():
                         except Exception:
                             pass
                         
-                        print("🚀 コミットを実行しています...")
+                        print(t("main.action_commit_running"))
                         if git_commit(commit_message):
-                            print("✅ コミットが完了しました！")
+                            print(t("main.action_commit_success"))
                         else:
-                            print("⚠️ コミットに失敗しました。メッセージはクリップボードにコピーされています。")
+                            print(t("main.action_commit_failed"))
                         return # 終了
                     
                     elif choice == 'e':
@@ -87,26 +88,26 @@ def main():
                         break 
                         
                     elif choice == 'n':
-                        print("❌ キャンセルしました。")
+                        print(t("main.action_canceled"))
                         sys.exit(0)
             
         except Exception as e:
             print(f"Error calling LLM API: {e}", file=sys.stderr)
-            print("⚠️ API呼び出しに失敗しました。プロンプトをコピーします。")
+            print(t("main.api_error"))
             pyperclip.copy(final_text)
-            print("✅ プロンプトをクリップボードにコピーしました！")
+            print(t("main.prompt_copied"))
     else:
         # LLM設定がない場合
         try:
             pyperclip.copy(final_text)
-            print("✅ プロンプトをクリップボードにコピーしました！")
+            print(t("main.prompt_copied"))
             if user_context:
-                print(f"📝 付与されたコンテキスト: {user_context}")
+                print(t("main.context_added", user_context))
         except pyperclip.PyperclipException:
-            print("⚠️ クリップボードへのコピーに失敗しました。以下の出力を手動でコピーしてください:\n")
+            print(t("main.manual_copy_required"))
             print(final_text)
         except Exception as e:
-            print(f"Error: {e}", file=sys.stderr)
+            print(t("common.error", e), file=sys.stderr)
 
 if __name__ == "__main__":
     main()

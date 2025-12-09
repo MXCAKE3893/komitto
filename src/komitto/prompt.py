@@ -1,5 +1,6 @@
 import re
 from xml.sax.saxutils import escape
+from .i18n import t
 
 def parse_diff_to_xml(diff_content):
     """Git DiffをXML形式に変換する"""
@@ -81,13 +82,13 @@ def build_prompt(system_prompt: str, recent_logs: str | None, user_context: str,
     full_payload = [system_prompt, "\n---\n"]
     
     if recent_logs:
-        full_payload.append("## 📜 直近のコミット履歴（参考情報）")
-        full_payload.append(f"以下の履歴を踏まえて、文脈や形式を考慮してください:\n\n{recent_logs}")
+        full_payload.append(t("prompt.recent_logs_title"))
+        full_payload.append(t("prompt.recent_logs_instruction", recent_logs))
         full_payload.append("\n---\n")
     
     if user_context:
-        full_payload.append("## 💡 ユーザーからの追加コンテキスト（補足情報）")
-        full_payload.append(f"ユーザーメモ: {user_context}")
+        full_payload.append(t("prompt.user_context_title"))
+        full_payload.append(t("prompt.user_context_instruction", user_context))
         full_payload.append("\n---\n")
 
     xml_output = parse_diff_to_xml(diff_content)

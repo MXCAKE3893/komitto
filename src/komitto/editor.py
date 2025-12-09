@@ -3,6 +3,7 @@ import subprocess
 import tempfile
 import textwrap
 import sys
+from .i18n import t
 
 def launch_editor(initial_message: str) -> str:
     """環境変数で指定されたエディタを起動してメッセージを編集させる"""
@@ -25,11 +26,7 @@ def launch_editor(initial_message: str) -> str:
     with tempfile.NamedTemporaryFile(mode='w+', delete=False, encoding='utf-8', suffix=".txt") as tmp_file:
         tmp_file_path = tmp_file.name
         tmp_file.write(initial_message.strip() + "\n\n")
-        tmp_file.write(textwrap.dedent("""
-            # --- komitto interactive mode ---
-            # コミットメッセージを編集してください。
-            # '#' で始まる行は最終的なメッセージから除外されます。
-        """).strip())
+        tmp_file.write(t("editor.instruction_comment"))
     
     try:
         if os.name == 'nt':
@@ -48,7 +45,7 @@ def launch_editor(initial_message: str) -> str:
         return "".join(cleaned_lines).strip()
         
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"⚠️ エディタ '{editor}' の起動に失敗しました ({e})。編集をキャンセルします。", file=sys.stderr)
+        print(t("editor.launch_failed", editor, e), file=sys.stderr)
         return initial_message
     finally:
         if os.path.exists(tmp_file_path):

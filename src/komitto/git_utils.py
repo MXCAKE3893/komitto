@@ -1,19 +1,20 @@
 import subprocess
 import sys
+from .i18n import t
 
 def get_git_diff():
     """ステージングされた変更を取得する"""
     try:
         subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], check=True, capture_output=True)
     except subprocess.CalledProcessError:
-        print("Error: Not a git repository.", file=sys.stderr)
+        print(t("git_utils.not_a_repo"), file=sys.stderr)
         sys.exit(1)
 
     cmd = ["git", "diff", "--staged", "--no-prefix", "-U0"]
     result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
     
     if not result.stdout:
-        print("Warning: No staged changes found. (Use 'git add' first)", file=sys.stderr)
+        print(t("git_utils.no_staged_changes"), file=sys.stderr)
         sys.exit(1)
         
     return result.stdout
@@ -46,7 +47,7 @@ def get_git_log(limit=5):
 def git_commit(message):
     """メッセージを指定してコミットを実行する"""
     if not message.strip():
-        print("Error: Commit message is empty.", file=sys.stderr)
+        print(t("git_utils.commit_message_empty"), file=sys.stderr)
         return False
 
     cmd = ["git", "commit", "-m", message]

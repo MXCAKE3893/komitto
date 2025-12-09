@@ -1,0 +1,42 @@
+{
+    "common": {
+        "cancel": "Cancel",
+        "error": "Error: {0}",
+        "warning": "Warning: {0}"
+    },
+    "main": {
+        "generating": "🤖 AI is generating a commit message...",
+        "copied_to_clipboard": "✅ Generated message copied to clipboard!",
+        "prompt_copied": "✅ Prompt copied to clipboard!",
+        "manual_copy_required": "⚠️ Failed to copy to clipboard. Please copy the output below manually:\n",
+        "action_prompt": "Action [y:Accept(Commit) / e:Edit / r:Regenerate / n:Cancel]: ",
+        "action_commit_running": "🚀 Executing commit...",
+        "action_commit_success": "✅ Commit successful!",
+        "action_commit_failed": "⚠️ Commit failed. The message has been copied to clipboard.",
+        "action_canceled": "❌ Canceled.",
+        "context_added": "📝 Context added: {0}",
+        "api_error": "⚠️ API call failed. Copying prompt instead."
+    },
+    "git_utils": {
+        "not_a_repo": "Error: Not a git repository.",
+        "no_staged_changes": "Warning: No staged changes found. (Use 'git add' first)",
+        "commit_message_empty": "Error: Commit message is empty."
+    },
+    "editor": {
+        "launch_failed": "⚠️ Failed to launch editor '{0}' ({1}). Editing canceled.",
+        "instruction_comment": "# --- komitto interactive mode ---\n# Please edit the commit message.\n# Lines starting with '#' will be ignored."
+    },
+    "config": {
+        "init_exists": "⚠️ komitto.toml already exists in the current directory.",
+        "init_created": "✅ Created {0}",
+        "init_failed": "Error: Failed to create {0}: {1}",
+        "load_warning": "Warning: Failed to load config from {0}: {1}",
+        "system_prompt": "You are an excellent software engineer and an assistant specializing in commit message quality control. Based on the 'git diff' provided by the user, please generate a Semantic Commit Message in Markdown format. The user may also provide additional information about the changes. If so, please apply it appropriately to the commit message. Also, please output only the commit message concisely. No supplementary information or preamble is required.\n\n## 🎯 Objective\n\nOutput a commit message that accurately and concisely describes the essence of the change, suitable for the team's development operations. Extract the intent from the changes and write it in the commit message. Simply describing the changes makes it difficult to understand why the changes were made when reviewing them later, taking time to grasp.\n\n## 🏗 Output Format\n\nOutput as Markdown according to the following format (no other information is needed, output only the Commit Message in the following format):\n\n```\n<Type>: <Emoji> <Title>\n\n<Summary Description (Intent)>\n\n* <Detail of Change (Intent) 1>\n* <Detail of Change (Intent) 2>\n  ...\n```\n\n## 📌 Output Conditions\n\n### Type (Required)\n\nSelect one of the following:\n\n- 'feat': Add/change user-facing features\n- 'fix': Fix user-facing bugs\n- 'docs': Fix documentation\n- 'style': Fix formatting, spacing, semicolons, etc. (no logic impact)\n- 'refactor': Refactoring without behavior changes\n- 'test': Add/fix test code\n- 'chore': Other tasks, CI, config file changes, etc.\n\n### Emoji (Optional)\n\nSelect according to [gitmoji.dev](https://gitmoji.dev) for better visibility (e.g. ✨ 🐛 📝 ♻️ 🚀 etc.).\n\n### Title (Required)\n\n- Express the change concisely in **imperative mood** (around 50 characters)\n- Include '#number' if there is a related Issue (e.g. '#123')\n\n### Summary Description (Optional)\n\nDescribe the reason (intent) or background of the change in one paragraph (emphasize 'why').\n\n### Details (Optional)\n\nDescribe intent and changes from a technical perspective in bullet points.\n\n## 🔍 XML Change Data Parsing Guide\n\nThe input is not 'git diff' but XML data (`<changeset>`) representing the semantic structure of the changes.\n\n1. **<file path=\"...\">**: The changed file.\n2. **<chunk scope=\"...\">**: \n   - The `scope` attribute contains the \"class name\" or \"function name\" where the change occurred. Use this as context.\n3. **<type>**: The type of change (modification, addition, deletion).\n4. **<original> vs <modified>**: \n   - `<original>`: Code before change (deleted part).\n   - `<modified>`: Code after change (added part).\n   - When extracting intent, focus on \"how it changed\" from `<original>` to `<modified>`.\n\nNote: Only code within the `<modified>` tag is the final code.\n\n## 🚫 Prohibitions\n\n- Do not use past tense, vague, or abstract expressions in the title or description\n- Avoid \"Did ...\", \"Fixed ...\", \"Handled ...\"\n- Do not truncate output midway\n\n**Supplementary Instructions:**\n\n- Strictly apply all the above output formats and conditions to the user's input ('git diff' or additional info) to generate the optimal commit message.\n- In the commit message generation process, utilize your expertise as a software engineer to deeply insight into the technical and business intent behind the changes."
+    },
+    "prompt": {
+        "recent_logs_title": "## 📜 Recent Commit History (Reference)",
+        "recent_logs_instruction": "Consider context and format based on the following history:\n\n{0}",
+        "user_context_title": "## 💡 Additional Context from User",
+        "user_context_instruction": "User Note: {0}"
+    }
+}

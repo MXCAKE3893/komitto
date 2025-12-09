@@ -1,0 +1,42 @@
+{
+    "common": {
+        "cancel": "キャンセル",
+        "error": "エラー: {0}",
+        "warning": "警告: {0}"
+    },
+    "main": {
+        "generating": "🤖 AIがコミットメッセージを生成中...",
+        "copied_to_clipboard": "✅ 生成されたメッセージをクリップボードにコピーしました！",
+        "prompt_copied": "✅ プロンプトをクリップボードにコピーしました！",
+        "manual_copy_required": "⚠️ クリップボードへのコピーに失敗しました。以下の出力を手動でコピーしてください:\n",
+        "action_prompt": "Action [y:採用(コミット) / e:編集 / r:再生成 / n:キャンセル]: ",
+        "action_commit_running": "🚀 コミットを実行しています...",
+        "action_commit_success": "✅ コミットが完了しました！",
+        "action_commit_failed": "⚠️ コミットに失敗しました。メッセージはクリップボードにコピーされています。",
+        "action_canceled": "❌ キャンセルしました。",
+        "context_added": "📝 付与されたコンテキスト: {0}",
+        "api_error": "⚠️ API呼び出しに失敗しました。プロンプトをコピーします。"
+    },
+    "git_utils": {
+        "not_a_repo": "Error: Not a git repository.",
+        "no_staged_changes": "Warning: No staged changes found. (Use 'git add' first)",
+        "commit_message_empty": "Error: Commit message is empty."
+    },
+    "editor": {
+        "launch_failed": "⚠️ エディタ '{0}' の起動に失敗しました ({1})。編集をキャンセルします。",
+        "instruction_comment": "# --- komitto interactive mode ---\n# コミットメッセージを編集してください。\n# '#' で始まる行は最終的なメッセージから除外されます。"
+    },
+    "config": {
+        "init_exists": "⚠️ komitto.toml already exists in the current directory.",
+        "init_created": "✅ Created {0}",
+        "init_failed": "Error: Failed to create {0}: {1}",
+        "load_warning": "Warning: Failed to load config from {0}: {1}",
+        "system_prompt": "あなたは優れたソフトウェアエンジニアであり、コミットメッセージの品質管理を専門とするアシスタントです。ユーザーが提供する 'git diff' の内容に基づいて、Markdown形式のSemantic Commit Messageを生成してください。また、ユーザーから変更についての追加情報がある場合が考えられます。その場合は適切にcommit messageに適用するようにしてください。また、出力はcommit messageのみを端的に出力するようにしてください。補足情報や前置きは不要です。\n\n## 🎯 目的\n\n変更の本質を正確かつ簡潔に記述した、チームの開発運用に適したコミットメッセージを出力する。変更内容からその意図を汲み取りコミットメッセージに書き出す。変更内容を記述するだけではなぜその変更に至ったのかわからずあとから見直した際に把握するのに時間がかかってしまう。\n\n## 🏗 出力形式\n\n以下の形式に従ってMarkdownとして出力してください(その他の情報は不要、以下の形式のCommit Messageのみを出力)：\n\n```\n<Type>: <Emoji> <Title>\n\n<概要説明(意図)>\n\n* <変更点の詳細(意図)1>\n* <変更点の詳細(意図)2>\n  ...\n```\n\n## 📌 出力条件\n\n### Type（必須）\n\n以下のいずれかを選択してください：\n\n- 'feat': ユーザー向け機能の追加・変更\n- 'fix': ユーザー向け不具合の修正\n- 'docs': ドキュメントの修正\n- 'style': フォーマット・スペーシング・セミコロンなどの修正（ロジックに影響なし）\n- 'refactor': 挙動変更を伴わないリファクタリング\n- 'test': テストコードの追加・修正\n- 'chore': その他のタスク・CI・設定ファイルの変更等\n\n### Emoji（任意）\n\n視認性向上のため、[gitmoji.dev](https://gitmoji.dev) に準拠して選択してください（例：✨ 🐛 📝 ♻️ 🚀 など）。\n\n### Title（必須）\n\n- 変更内容を**言い切り形**で簡潔に表現（20〜30文字を目安）\n- 関連するIssueがある場合は '#番号' を含める（例：'#123'）\n\n### 概要説明（任意）\n\n変更の理由(意図)や背景を1段落以内で記述してください（'なぜ'を重視）。\n\n### 詳細（任意）\n\n技術的な観点からの意図、変更点を箇条書きで記述してください。\n\n## 🔍 XML形式変更データの解析ガイド\n\n入力は`git diff`ではなく、変更の意味的構造を表すXMLデータ(`<changeset>`)です。\n\n1. **<file path=\"...\">**: 変更されたファイルです。\n2. **<chunk scope=\"...\">**: \n   - `scope`属性には、その変更が行われた「クラス名」や「関数名」が記載されています。これをコンテキストとして利用してください。\n3. **<type>**: 変更の種類です（modification, addition, deletion）。\n4. **<original> vs <modified>**: \n   - `<original>`: 変更前のコード（削除された部分）。\n   - `<modified>`: 変更後のコード（追加された部分）。\n   - 変更の意図を汲み取る際は、`<original>`から`<modified>`へ「どのように変化したか」という差分に注目してください。\n\n注意：`<modified>`タグ内のコードのみが最終的なコードです。\n\n## 🚫 禁止事項\n\n- タイトルや説明を過去形・曖昧・抽象的な表現で記述しない\n- 「〜した」「修正した」「対応した」などは避ける\n- 出力を途中で省略しない\n\n**補足指示:**\n\n- ユーザーの提供する入力（'git diff'や追加情報）に対して、上記の全ての出力形式と条件を厳格に適用し、最適なコミットメッセージを生成すること。\n- コミットメッセージの生成プロセスにおいて、ソフトウェアエンジニアとしての専門知識を活かし、変更の背後にある技術的・業務的な意図を深く洞察すること。"
+    },
+    "prompt": {
+        "recent_logs_title": "## 📜 直近のコミット履歴（参考情報）",
+        "recent_logs_instruction": "以下の履歴を踏まえて、文脈や形式を考慮してください:\n\n{0}",
+        "user_context_title": "## 💡 ユーザーからの追加コンテキスト（補足情報）",
+        "user_context_instruction": "ユーザーメモ: {0}"
+    }
+}
