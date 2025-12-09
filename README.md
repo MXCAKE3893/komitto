@@ -43,6 +43,20 @@ komitto
 # -> ✅ The generated message has been copied to your clipboard!
 ```
 
+### Interactive Mode
+
+Run with the `-i` or `--interactive` flag to review and edit the generated message before committing.
+
+```bash
+komitto -i
+```
+
+You can choose from the following actions:
+- **y: Accept (Commit)**: Accepts the message and automatically executes `git commit`.
+- **e: Edit**: Opens an editor to modify the message.
+- **r: Regenerate**: Regenerates the message.
+- **n: Cancel**: Exits without doing anything.
+
 ### Passing Additional Context
 
 If you have supplementary information you want to include in the prompt, such as the purpose behind your changes or any special notes, you can pass it as command-line arguments.
