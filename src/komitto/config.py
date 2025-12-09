@@ -133,3 +133,35 @@ def load_config():
                 print(f"Warning: Failed to load config from {path}: {e}", file=sys.stderr)
 
     return config
+
+def init_config():
+    """設定ファイルの雛形をカレントディレクトリに生成する"""
+    target_file = Path("komitto.toml")
+    if target_file.exists():
+        print("⚠️ komitto.toml already exists in the current directory.")
+        return
+
+    content = f"""[prompt]
+# システムプロンプトの設定
+# 以下の設定でデフォルトのプロンプトを上書きできます。
+
+system = \"\"\"
+{DEFAULT_SYSTEM_PROMPT.strip()}
+\"\"\"
+
+# [llm]
+# # AI自動生成を使用する場合は以下をコメントアウト解除して設定してください
+# provider = "openai" # "openai", "gemini", "anthropic"
+# model = "gpt-4o"
+# # api_key = "sk-..." # 省略時は環境変数を使用
+# # base_url = "http://localhost:11434/v1" # Ollamaなどの場合
+# # history_limit = 5 # プロンプトに含める過去のコミット数
+"""
+    try:
+        with open(target_file, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"✅ Created {target_file}")
+    except Exception as e:
+        print(f"Error: Failed to create {target_file}: {e}", file=sys.stderr)
+        sys.exit(1)
+
