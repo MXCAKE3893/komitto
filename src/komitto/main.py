@@ -2,6 +2,9 @@ import subprocess
 import re
 import sys
 import argparse
+import os
+import tempfile
+import textwrap
 from pathlib import Path
 import pyperclip
 from xml.sax.saxutils import escape
@@ -157,9 +160,60 @@ system = \"\"\"
         print(f"Error: Failed to create {target_file}: {e}", file=sys.stderr)
         sys.exit(1)
 
+def launch_editor(initial_message: str) -> str:
+    """環境変数で指定されたエディタを起動してメッセージを編集させる"""
+    # エディタの特定: 環境変数 -> git var GIT_EDITOR -> デフォルト
+    editor = os.environ.get('GIT_EDITOR') or \
+             os.environ.get('VISUAL') or \
+             os.environ.get('EDITOR')
+
+    if not editor:
+        try:
+            result = subprocess.run(['git', 'var', 'GIT_EDITOR'], capture_output=True, text=True, encoding='utf-8')
+            if result.returncode == 0 and result.stdout:
+                editor = result.stdout.strip()
+        except Exception:
+            pass
+
+    if not editor:
+        editor = 'notepad' if os.name == 'nt' else 'vi'
+
+    with tempfile.NamedTemporaryFile(mode='w+', delete=False, encoding='utf-8', suffix=".txt") as tmp_file:
+        tmp_file_path = tmp_file.name
+        tmp_file.write(initial_message.strip() + "\n\n")
+        tmp_file.write(textwrap.dedent("""
+            # --- komitto interactive mode ---
+            # コミットメッセージを編集してください。
+            # '#' で始まる行は最終的なメッセージから除外されます。
+        """).strip())
+    
+    try:
+        if os.name == 'nt':
+            cmd = f'{editor} "{tmp_file_path}"'
+            subprocess.run(cmd, check=True, shell=True)
+        else:
+            import shlex
+            cmd_args = shlex.split(editor)
+            cmd_args.append(tmp_file_path)
+            subprocess.run(cmd_args, check=True)
+        
+        with open(tmp_file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            
+        cleaned_lines = [line for line in lines if not line.strip().startswith('#')]
+        return "".join(cleaned_lines).strip()
+        
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"⚠️ エディタ '{editor}' の起動に失敗しました ({e})。編集をキャンセルします。", file=sys.stderr)
+        return initial_message
+    finally:
+        if os.path.exists(tmp_file_path):
+            os.unlink(tmp_file_path)
+
 def main():
     parser = argparse.ArgumentParser(description="Generate semantic commit prompt for LLMs from git diff.")
     parser.add_argument('context', nargs='*', help='Optional context or comments about the changes')
+    parser.add_argument('-i', '--interactive', action='store_true', help='Enable interactive mode to review/edit the message')
     args = parser.parse_args()
 
     # "init" コマンドの特別処理
@@ -202,16 +256,49 @@ def main():
     # LLM設定がある場合はAPIを呼び出す
     if llm_config and llm_config.get("provider"):
         try:
-            print("🤖 AIがコミットメッセージを生成中...")
             client = create_llm_client(llm_config)
-            commit_message = client.generate_commit_message(final_text)
             
-            # 結果をクリップボードにコピー
-            pyperclip.copy(commit_message)
-            print("\n" + "="*40)
-            print(commit_message)
-            print("="*40 + "\n")
-            print("✅ 生成されたメッセージをクリップボードにコピーしました！")
+            # 再生成用ループ (r:再生成 が選ばれた場合にここに戻る)
+            while True:
+                print("🤖 AIがコミットメッセージを生成中...")
+                commit_message = client.generate_commit_message(final_text)
+                
+                # 対話モードが無効なら即終了（既存の挙動）
+                if not args.interactive:
+                    pyperclip.copy(commit_message)
+                    print("\n" + "="*40)
+                    print(commit_message)
+                    print("="*40 + "\n")
+                    print("✅ 生成されたメッセージをクリップボードにコピーしました！")
+                    break
+
+                # 承認ループ (編集後にここに戻る)
+                while True:
+                    print("\n" + "="*40)
+                    print(commit_message)
+                    print("="*40 + "\n")
+                    
+                    choice = input("Action [y:採用 / e:編集 / r:再生成 / n:キャンセル]: ").lower().strip()
+                    
+                    if choice == 'y':
+                        pyperclip.copy(commit_message)
+                        print("✅ 生成されたメッセージをクリップボードにコピーしました！")
+                        return # 終了
+                    
+                    elif choice == 'e':
+                        # エディタを起動して編集
+                        commit_message = launch_editor(commit_message)
+                        # 編集結果を表示するためにループ継続
+                        continue 
+                        
+                    elif choice == 'r':
+                        # 再生成ループへ戻る
+                        break 
+                        
+                    elif choice == 'n':
+                        print("❌ キャンセルしました。")
+                        sys.exit(0)
+            
         except Exception as e:
             print(f"Error calling LLM API: {e}", file=sys.stderr)
             print("⚠️ API呼び出しに失敗しました。プロンプトをコピーします。")
