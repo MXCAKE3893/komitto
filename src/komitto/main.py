@@ -28,9 +28,13 @@ def main():
     llm_config = config.get("llm", {})
     history_limit = llm_config.get("history_limit", 5)
 
+    # Git除外設定の取得
+    git_config = config.get("git", {})
+    exclude_patterns = git_config.get("exclude", [])
+
     # Git情報の取得
     recent_logs = get_git_log(limit=history_limit)
-    diff_content = get_git_diff()
+    diff_content = get_git_diff(exclude_patterns=exclude_patterns)
     user_context = " ".join(args.context)
 
     # プロンプトの構築

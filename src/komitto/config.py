@@ -20,6 +20,17 @@ def load_config():
     config = {
         "prompt": {
             "system": t("config.system_prompt")
+        },
+        "git": {
+            "exclude": [
+                "package-lock.json",
+                "yarn.lock",
+                "pnpm-lock.yaml",
+                "poetry.lock",
+                "Cargo.lock",
+                "go.sum",
+                "*.lock"
+            ]
         }
     }
 
@@ -79,6 +90,19 @@ system = \"\"\"
 # # api_key = "sk-..." # Optional if environment variable is set / 省略時は環境変数を使用
 # # base_url = "http://localhost:11434/v1" # For Ollama etc. / Ollamaなどの場合
 # # history_limit = 5 # Number of past commits to include / プロンプトに含める過去のコミット数
+
+[git]
+# Files to exclude from the diff (glob patterns)
+# 差分から除外するファイル（globパターン）
+exclude = [
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "poetry.lock",
+    "Cargo.lock",
+    "go.sum",
+    "*.lock"
+]
 """
     try:
         with open(target_file, "w", encoding="utf-8") as f:
