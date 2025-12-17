@@ -1,5 +1,6 @@
 import re
 from xml.sax.saxutils import escape
+from typing import Optional
 from .i18n import t
 
 def parse_diff_to_xml(diff_content):
@@ -77,7 +78,7 @@ def parse_diff_to_xml(diff_content):
     
     return "\n".join(output)
 
-def build_prompt(system_prompt: str, recent_logs: str | None, user_context: str, diff_content: str) -> str:
+def build_prompt(system_prompt: str, recent_logs: Optional[str], user_context: str, diff_content: str) -> str:
     """最終的なプロンプトを構築する"""
     full_payload = [system_prompt, "\n---\n"]
     
