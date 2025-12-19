@@ -13,6 +13,9 @@ A CLI tool for generating semantic commit message prompts from `git diff` inform
 - Combines with system prompts specifically designed for commit message generation
 - Copies the final generated prompt to the clipboard
 - Provides functionality to attach additional context about the changes via command-line arguments
+- **Interactive Mode**: Review, edit, regenerate, or commit the generated message in an interactive session
+- **Editor Integration**: Edit the commit message using your preferred editor
+- **Robust Error Handling**: Gracefully handles various error scenarios with helpful feedback
 
 ## Installation
 
@@ -26,6 +29,23 @@ For development installation, use the following command:
 pip install -e .
 ```
 
+## Language Support
+
+komitto automatically detects your language based on your OS locale settings.
+Currently supported languages are:
+- English (`en`) - Default
+- Japanese (`ja`)
+
+To force a specific language, you can set the `KOMITTO_LANG` environment variable:
+
+```bash
+# Linux/macOS
+export KOMITTO_LANG=ja
+
+# Windows (PowerShell)
+$env:KOMITTO_LANG="ja"
+```
+
 ## Usage
 
 ### Basic Usage (Prompt Generation Mode)
@@ -33,6 +53,12 @@ pip install -e .
 1. Make changes in a repository and stage files using `git add`.
 2. Run the `komitto` command.
 3. The generated prompt will be copied to your clipboard - simply paste it into ChatGPT or another LLM.
+
+```bash
+komitto
+# -> The generated prompt has been copied to your clipboard!
+```
+
 ### AI Automated Generation Mode (Recommended)
 
 By configuring API settings in the `komitto.toml` configuration file, the `komitto` command will automatically invoke the API when executed, directly copying the generated commit message to your clipboard.
@@ -57,6 +83,8 @@ You can choose from the following actions:
 - **r: Regenerate**: Regenerates the message.
 - **n: Cancel**: Exits without doing anything.
 
+**Note**: Interactive mode is only available when LLM API settings are configured in `komitto.toml`.
+
 ### Passing Additional Context
 
 If you have supplementary information you want to include in the prompt, such as the purpose behind your changes or any special notes, you can pass it as command-line arguments.
@@ -65,6 +93,22 @@ If you have supplementary information you want to include in the prompt, such as
 ```bash
 komitto "This change is an emergency bug fix"
 ```
+
+### Editor Integration
+
+When using the interactive mode, you can edit the generated message using your preferred editor. The editor is determined in the following order:
+- `GIT_EDITOR` environment variable
+- `VISUAL` environment variable
+- `EDITOR` environment variable
+- Git's configured `GIT_EDITOR`
+- Default editor (notepad on Windows, vi on other platforms)
+
+```bash
+komitto -i
+e
+# -> Opens editor to modify the message
+```
+
 
 ## Customization via Configuration File
 
@@ -90,8 +134,8 @@ The system will search for configuration files in the following order, and any f
 [prompt]
 # Overwrite the default system prompt
 system = """
-You are a cheerful engineer speaking in Kansai dialect.
-...
+You are a helpful assistant that generates semantic commit messages.
+Please analyze the provided diff information and create a concise and descriptive commit message following Conventional Commits format.
 """
 
 [llm]
@@ -99,17 +143,42 @@ You are a cheerful engineer speaking in Kansai dialect.
 provider = "openai" # Options: "openai", "gemini", "anthropic"
 
 # Model specification
-model = "gpt-5"
+model = "gpt-5.2" # or other available models
 
-# API key (uses environment variables OPENAI_API_KEY, etc. if not specified)
-# api_key = "sk-..." 
+# API key (uses environment variables OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY, etc. if not specified)
+api_key = "sk-..." 
 
 # For using Ollama/LM Studio, etc.
 # base_url = "http://localhost:11434/v1"
 
 # Number of previous commit history entries to include in the prompt (default: 5)
 history_limit = 5
+
+[git]
+# Files to exclude from the diff analysis (glob patterns)
+# Default excludes: package-lock.json, yarn.lock, pnpm-lock.yaml, poetry.lock, Cargo.lock, go.sum, *.lock
+exclude = [
+    "package-lock.json",
+    "yarn.lock",
+    "*.lock"
+]
 ```
+
+### Using Ollama/LM Studio
+
+To use Ollama or LM Studio as your LLM provider, configure the `base_url` parameter:
+
+```toml
+[llm]
+provider = "openai"
+model = "qwen3"
+base_url = "http://localhost:11434/v1"
+# Optional: API key might not be required for local instances
+# api_key = "dummy"
+```
+
+This allows you to use locally hosted LLM models while still using the OpenAI-compatible API interface.
+
 
 ## How It Works
 
