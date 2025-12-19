@@ -24,6 +24,12 @@ dependencies = [
     "openai",
     "google-generativeai",
     "anthropic",
+    "rich",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
 ]
 
 [project.scripts]

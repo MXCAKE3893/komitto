@@ -1,6 +1,18 @@
 import sys
+import os
 import argparse
 import pyperclip
+
+try:
+    import msvcrt
+except ImportError:
+    import tty
+    import termios
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.markdown import Markdown
+from rich.markup import escape
 
 from .config import load_config, init_config
 from .llm import create_llm_client
@@ -9,109 +21,120 @@ from .editor import launch_editor
 from .prompt import build_prompt
 from .i18n import t
 
+console = Console()
+
+def get_key():
+    """Reads a single key from the console."""
+    if os.name == 'nt':
+        # msvcrt.getch() returns bytes, decode to string
+        key = msvcrt.getch()
+        try:
+            return key.decode('utf-8')
+        except UnicodeDecodeError:
+            return key  # Return bytes if cannot decode (e.g. arrow keys)
+    else:
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
 def main():
     parser = argparse.ArgumentParser(description="Generate semantic commit prompt for LLMs from git diff.")
     parser.add_argument('context', nargs='*', help='Optional context or comments about the changes')
     parser.add_argument('-i', '--interactive', action='store_true', help='Enable interactive mode to review/edit the message')
     args = parser.parse_args()
 
-    # "init" コマンドの特別処理
     if len(args.context) == 1 and args.context[0] == "init":
         init_config()
         return
 
-    # 設定の読み込み
     config = load_config()
     system_prompt = config["prompt"]["system"]
     
-    # LLM設定の取得
     llm_config = config.get("llm", {})
     history_limit = llm_config.get("history_limit", 5)
 
-    # Git除外設定の取得
     git_config = config.get("git", {})
     exclude_patterns = git_config.get("exclude", [])
 
-    # Git情報の取得
     recent_logs = get_git_log(limit=history_limit)
     diff_content = get_git_diff(exclude_patterns=exclude_patterns)
     user_context = " ".join(args.context)
 
-    # プロンプトの構築
     final_text = build_prompt(system_prompt, recent_logs, user_context, diff_content)
 
-    # LLM設定がある場合はAPIを呼び出す
     if llm_config and llm_config.get("provider"):
         try:
             client = create_llm_client(llm_config)
             
-            # 再生成用ループ (r:再生成 が選ばれた場合にここに戻る)
             while True:
-                print(t("main.generating"))
-                commit_message = client.generate_commit_message(final_text)
+                with console.status(t("main.generating"), spinner="dots"):
+                    commit_message = client.generate_commit_message(final_text)
                 
-                # 対話モードが無効なら即終了（既存の挙動）
                 if not args.interactive:
                     pyperclip.copy(commit_message)
-                    print("\n" + "="*40)
-                    print(commit_message)
-                    print("="*40 + "\n")
-                    print(t("main.copied_to_clipboard"))
+                    console.print(Panel(Markdown(commit_message), title="Generated Commit Message", border_style="blue"))
+                    console.print(t("main.copied_to_clipboard"), style="green")
                     break
 
-                # 承認ループ (編集後にここに戻る)
                 while True:
-                    print("\n" + "="*40)
-                    print(commit_message)
-                    print("="*40 + "\n")
+                    console.clear() 
+                    console.print(Panel(Markdown(commit_message), title="Generated Commit Message", border_style="blue"))
                     
-                    choice = input(t("main.action_prompt")).lower().strip()
+                    prompt_msg = escape(t("main.action_prompt"))
+                    console.print(prompt_msg, end=" ", style="bold")
+                    sys.stdout.flush()
+                    
+                    choice = get_key().lower()
+                    console.print(choice) 
                     
                     if choice == 'y':
-                        # クリップボードにも一応コピーしておく
                         try:
                             pyperclip.copy(commit_message)
                         except Exception:
                             pass
                         
-                        print(t("main.action_commit_running"))
+                        console.print(t("main.action_commit_running"), style="yellow")
                         if git_commit(commit_message):
-                            print(t("main.action_commit_success"))
+                            console.print(t("main.action_commit_success"), style="bold green")
                         else:
-                            print(t("main.action_commit_failed"))
-                        return # 終了
+                            console.print(t("main.action_commit_failed"), style="bold red")
+                        return
                     
                     elif choice == 'e':
-                        # エディタを起動して編集
                         commit_message = launch_editor(commit_message)
-                        # 編集結果を表示するためにループ継続
                         continue 
                         
                     elif choice == 'r':
-                        # 再生成ループへ戻る
                         break 
                         
-                    elif choice == 'n':
-                        print(t("main.action_canceled"))
-                        sys.exit(0)
+                    elif choice == 'n' or choice == '\x03' or choice == 'q':
+                        console.print(t("main.action_canceled"), style="yellow")
+                        os._exit(0)
             
         except Exception as e:
-            print(f"Error calling LLM API: {e}", file=sys.stderr)
-            print(t("main.api_error"))
-            pyperclip.copy(final_text)
-            print(t("main.prompt_copied"))
+            console.print(f"Error calling LLM API: {e}", style="bold red")
+            console.print(t("main.api_error"), style="yellow")
+            try:
+                pyperclip.copy(final_text)
+                console.print(t("main.prompt_copied"), style="green")
+            except:
+                pass
     else:
-        # LLM設定がない場合
         try:
             pyperclip.copy(final_text)
-            print(t("main.prompt_copied"))
+            console.print(t("main.prompt_copied"), style="green")
             if user_context:
-                print(t("main.context_added", user_context))
+                console.print(t("main.context_added", user_context), style="blue")
         except pyperclip.PyperclipException:
-            print(t("main.manual_copy_required"))
-            print(final_text)
+            console.print(t("main.manual_copy_required"), style="yellow")
+            console.print(final_text)
         except Exception as e:
-            print(t("common.error", e), file=sys.stderr)
+            console.print(t("common.error", e), style="bold red")
 
 if __name__ == "__main__":
     main()
