@@ -2,6 +2,7 @@ import sys
 import os
 import argparse
 import pyperclip
+import time
 
 try:
     import msvcrt
@@ -42,6 +43,10 @@ def get_key():
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
+from rich.live import Live
+from rich.console import Group
+from rich.text import Text
+
 def generate_and_review(config, args, system_prompt, final_text, title_suffix=""):
     """
     Generates a commit message and handles the review loop.
@@ -56,12 +61,64 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
         client = create_llm_client(llm_config)
         
         while True:
-            with console.status(f"{t('main.generating')} {title_suffix}", spinner="dots"):
-                commit_message = client.generate_commit_message(final_text)
+            commit_message = ""
+            usage_stats = None
+            start_time = time.time()
+            input_chars = len(final_text)
+            
+            with Live(Panel(Markdown(""), title=f"Generating {title_suffix}...", border_style="blue"), console=console, refresh_per_second=10) as live:
+                for chunk, usage in client.stream_commit_message(final_text):
+                    if chunk:
+                        commit_message += chunk
+                    
+                    if usage:
+                        usage_stats = usage
+                    
+                    elapsed = time.time() - start_time
+                    speed_info = ""
+                    if elapsed > 0:
+                        if usage_stats and usage_stats.get('completion_tokens'):
+                            speed = usage_stats['completion_tokens'] / elapsed
+                            speed_info = f" / {speed:.1f} tok/s"
+                        else:
+                            speed = len(commit_message) / elapsed
+                            speed_info = f" / {speed:.1f} char/s"
+
+                    token_info = ""
+                    if usage_stats:
+                        p_tok = usage_stats.get('prompt_tokens', '?')
+                        c_tok = usage_stats.get('completion_tokens', '?')
+                        token_info = f"\nInput: {input_chars} chars ({p_tok} toks) / Output: {c_tok} toks{speed_info}"
+                    elif commit_message:
+                         est_out_tok = len(commit_message) // 4
+                         token_info = f"\nInput: {input_chars} chars / Est. Output: {est_out_tok} toks{speed_info}"
+
+                    live.update(Panel(
+                        Group(
+                            Markdown(commit_message),
+                            Text.from_markup(token_info, style="dim")
+                        ),
+                        title=f"Generating {title_suffix}...", 
+                        border_style="blue"
+                    ))
+
+            console.clear()
+            final_panel_title = f"Generated Commit Message {title_suffix}"
+            if usage_stats:
+                elapsed = time.time() - start_time
+                speed_str = ""
+                if elapsed > 0 and usage_stats.get('completion_tokens'):
+                     speed_str = f" ({usage_stats['completion_tokens'] / elapsed:.1f} tok/s)"
+                
+                p_tok = usage_stats.get('prompt_tokens', '?')
+                c_tok = usage_stats.get('completion_tokens', '?')
+                t_tok = usage_stats.get('total_tokens', '?')
+                usage_str = f"[dim]Input: {input_chars} chars ({p_tok} toks) / Output: {c_tok} toks / Total: {t_tok} toks{speed_str}[/dim]"
+                console.print(usage_str, justify="right")
             
             if not args.interactive and not args.compare:
                 pyperclip.copy(commit_message)
-                console.print(Panel(Markdown(commit_message), title=f"Generated Commit Message {title_suffix}", border_style="blue"))
+                console.print(Panel(Markdown(commit_message), title=final_panel_title, border_style="blue"))
                 console.print(t("main.copied_to_clipboard"), style="green")
                 return commit_message
 
@@ -71,7 +128,10 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
 
             while True:
                 console.clear() 
-                console.print(Panel(Markdown(commit_message), title=f"Generated Commit Message {title_suffix}", border_style="blue"))
+                if usage_stats:
+                     console.print(f"[dim]Tokens: Prompt {usage_stats.get('prompt_tokens', '?')}, Completion {usage_stats.get('completion_tokens', '?')}, Total {usage_stats.get('total_tokens', '?')}[/dim]", justify="right")
+
+                console.print(Panel(Markdown(commit_message), title=final_panel_title, border_style="blue"))
                 
                 prompt_msg = escape(t("main.action_prompt"))
                 console.print(prompt_msg, end=" ", style="bold")

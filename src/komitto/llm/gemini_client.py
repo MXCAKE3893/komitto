@@ -11,7 +11,30 @@ class GeminiClient(LLMClient):
         genai.configure(api_key=api_key)
         self.model_name = config.get("model", "gemini-pro")
 
-    def generate_commit_message(self, prompt: str) -> str:
+    def generate_commit_message(self, prompt: str):
         model = genai.GenerativeModel(self.model_name)
         response = model.generate_content(prompt)
-        return response.text.strip()
+        
+        usage = None
+        if hasattr(response, 'usage_metadata'):
+             usage = {
+                "prompt_tokens": response.usage_metadata.prompt_token_count,
+                "completion_tokens": response.usage_metadata.candidates_token_count,
+                "total_tokens": response.usage_metadata.total_token_count
+            }
+            
+        return response.text.strip(), usage
+
+    def stream_commit_message(self, prompt: str):
+        model = genai.GenerativeModel(self.model_name)
+        response = model.generate_content(prompt, stream=True)
+        
+        for chunk in response:
+            usage = None
+            if hasattr(chunk, 'usage_metadata'):
+                 usage = {
+                    "prompt_tokens": chunk.usage_metadata.prompt_token_count,
+                    "completion_tokens": chunk.usage_metadata.candidates_token_count,
+                    "total_tokens": chunk.usage_metadata.total_token_count
+                }
+            yield chunk.text, usage
