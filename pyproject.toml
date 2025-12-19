@@ -22,7 +22,7 @@ dependencies = [
     "platformdirs",
     "tomli",
     "openai",
-    "google-generativeai",
+    "google-genai",
     "anthropic",
     "rich",
 ]

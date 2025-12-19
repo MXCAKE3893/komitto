@@ -1,5 +1,5 @@
 import os
-import google.generativeai as genai
+from google import genai
 from .base import LLMClient
 
 class GeminiClient(LLMClient):
@@ -8,12 +8,14 @@ class GeminiClient(LLMClient):
         if not api_key:
             raise ValueError("Gemini API key is missing. Set it in komitto.toml or environment variable 'GEMINI_API_KEY'.")
         
-        genai.configure(api_key=api_key)
+        self.client = genai.Client(api_key=api_key)
         self.model_name = config.get("model", "gemini-pro")
 
     def generate_commit_message(self, prompt: str):
-        model = genai.GenerativeModel(self.model_name)
-        response = model.generate_content(prompt)
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=prompt
+        )
         
         usage = None
         if hasattr(response, 'usage_metadata'):
@@ -26,8 +28,10 @@ class GeminiClient(LLMClient):
         return response.text.strip(), usage
 
     def stream_commit_message(self, prompt: str):
-        model = genai.GenerativeModel(self.model_name)
-        response = model.generate_content(prompt, stream=True)
+        response = self.client.models.generate_content_stream(
+            model=self.model_name,
+            contents=prompt
+        )
         
         for chunk in response:
             usage = None
