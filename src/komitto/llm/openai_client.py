@@ -16,7 +16,7 @@ class OpenAIClient(LLMClient):
             api_key=api_key or "dummy", # Some local servers need a dummy key
             base_url=base_url
         )
-        self.model = config.get("model", "gpt-3.5-turbo")
+        self.model = config.get("model", "gpt-4o")
 
     def generate_commit_message(self, prompt: str) -> str:
         response = self.client.chat.completions.create(

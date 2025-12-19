@@ -65,6 +65,43 @@ def load_config():
 
     return config
 
+def resolve_config(config, context_name=None, template_name=None, model_name=None):
+    """
+    指定されたコンテキスト、テンプレート、モデルに基づいて設定を解決・マージした新しい設定辞書を返す。
+    """
+    resolved_config = config.copy()
+    
+    target_template = template_name
+    target_model = model_name
+
+    if context_name:
+        contexts = config.get("contexts", {})
+        if context_name in contexts:
+            ctx = contexts[context_name]
+            if not target_template and "template" in ctx:
+                target_template = ctx["template"]
+            if not target_model and "model" in ctx:
+                target_model = ctx["model"]
+
+    if target_template:
+        templates = config.get("templates", {})
+        if target_template in templates:
+            tmpl = templates[target_template]
+            if "system" in tmpl:
+                resolved_config.setdefault("prompt", {})["system"] = tmpl["system"]
+            for k, v in tmpl.items():
+                if k != "system":
+                     resolved_config["prompt"][k] = v
+
+    if target_model:
+        models = config.get("models", {})
+        if target_model in models:
+            mdl = models[target_model]
+            resolved_config["llm"] = resolved_config.get("llm", {}).copy()
+            resolved_config["llm"].update(mdl)
+
+    return resolved_config
+
 def init_config():
     """設定ファイルの雛形をカレントディレクトリに生成する"""
     target_file = Path("komitto.toml")
@@ -103,6 +140,22 @@ exclude = [
     "go.sum",
     "*.lock"
 ]
+
+# --- Advanced Settings (Templates & Contexts) ---
+# You can define reusable templates and contexts for different workflows.
+# テンプレートやコンテキストを定義して、用途に応じて使い分けることができます。
+
+# [templates.simple]
+# system = "Summarize changes in one line."
+
+# [models.gpt4]
+# provider = "openai"
+# model = "gpt-4o"
+
+# [contexts.release]
+# template = "simple"
+# model = "gpt4"
+# # usage: komitto -c release
 """
     try:
         with open(target_file, "w", encoding="utf-8") as f:

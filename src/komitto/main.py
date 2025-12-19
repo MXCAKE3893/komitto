@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.markdown import Markdown
 from rich.markup import escape
 
-from .config import load_config, init_config
+from .config import load_config, init_config, resolve_config
 from .llm import create_llm_client
 from .git_utils import get_git_diff, get_git_log, git_commit
 from .editor import launch_editor
@@ -42,99 +42,166 @@ def get_key():
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
+def generate_and_review(config, args, system_prompt, final_text, title_suffix=""):
+    """
+    Generates a commit message and handles the review loop.
+    Extracts the main generation and interaction logic for reuse in single and compare modes.
+    """
+    llm_config = config.get("llm", {})
+    if not llm_config or not llm_config.get("provider"):
+        console.print(t("main.api_error"), style="yellow") # Or specific error about missing config
+        return None
+
+    try:
+        client = create_llm_client(llm_config)
+        
+        while True:
+            with console.status(f"{t('main.generating')} {title_suffix}", spinner="dots"):
+                commit_message = client.generate_commit_message(final_text)
+            
+            if not args.interactive and not args.compare:
+                pyperclip.copy(commit_message)
+                console.print(Panel(Markdown(commit_message), title=f"Generated Commit Message {title_suffix}", border_style="blue"))
+                console.print(t("main.copied_to_clipboard"), style="green")
+                return commit_message
+
+            # Interactive loop (or return for compare mode to handle display)
+            if args.compare:
+                return commit_message
+
+            while True:
+                console.clear() 
+                console.print(Panel(Markdown(commit_message), title=f"Generated Commit Message {title_suffix}", border_style="blue"))
+                
+                prompt_msg = escape(t("main.action_prompt"))
+                console.print(prompt_msg, end=" ", style="bold")
+                sys.stdout.flush()
+                
+                choice = get_key().lower()
+                console.print(choice) 
+                
+                if choice == 'y':
+                    try:
+                        pyperclip.copy(commit_message)
+                    except Exception:
+                        pass
+                    
+                    console.print(t("main.action_commit_running"), style="yellow")
+                    if git_commit(commit_message):
+                        console.print(t("main.action_commit_success"), style="bold green")
+                        return commit_message
+                    else:
+                        console.print(t("main.action_commit_failed"), style="bold red")
+                        return None
+                
+                elif choice == 'e':
+                    commit_message = launch_editor(commit_message)
+                    continue 
+                    
+                elif choice == 'r':
+                    break # Break inner loop to regenerate
+                    
+                elif choice == 'n' or choice == '\x03' or choice == 'q':
+                    console.print(t("main.action_canceled"), style="yellow")
+                    os._exit(0)
+    except Exception as e:
+        console.print(f"Error calling LLM API {title_suffix}: {e}", style="bold red")
+        return None
+
 def main():
     parser = argparse.ArgumentParser(description="Generate semantic commit prompt for LLMs from git diff.")
     parser.add_argument('context', nargs='*', help='Optional context or comments about the changes')
     parser.add_argument('-i', '--interactive', action='store_true', help='Enable interactive mode to review/edit the message')
+    parser.add_argument('-c', '--context-name', dest='context_name', help='Specify a context profile from config')
+    parser.add_argument('-t', '--template', help='Specify a prompt template from config')
+    parser.add_argument('-m', '--model', help='Specify a model config from config')
+    parser.add_argument('--compare', nargs=2, metavar=('CTX1', 'CTX2'), help='Compare two contexts (by name)')
     args = parser.parse_args()
 
     if len(args.context) == 1 and args.context[0] == "init":
         init_config()
         return
 
-    config = load_config()
-    system_prompt = config["prompt"]["system"]
-    
-    llm_config = config.get("llm", {})
-    history_limit = llm_config.get("history_limit", 5)
+    base_config = load_config()
 
-    git_config = config.get("git", {})
+    if args.compare:
+        config1 = resolve_config(base_config, context_name=args.compare[0])
+        config2 = resolve_config(base_config, context_name=args.compare[1])
+        configs = [(args.compare[0], config1), (args.compare[1], config2)]
+    else:
+        config = resolve_config(base_config, context_name=args.context_name, template_name=args.template, model_name=args.model)
+        configs = [("Default", config)]
+
+    git_config = configs[0][1].get("git", {}) 
     exclude_patterns = git_config.get("exclude", [])
+    
+    llm_config = configs[0][1].get("llm", {})
+    history_limit = llm_config.get("history_limit", 5)
 
     recent_logs = get_git_log(limit=history_limit)
     diff_content = get_git_diff(exclude_patterns=exclude_patterns)
     user_context = " ".join(args.context)
 
-    final_text = build_prompt(system_prompt, recent_logs, user_context, diff_content)
-
-    if llm_config and llm_config.get("provider"):
-        try:
-            client = create_llm_client(llm_config)
+    if args.compare:
+        from rich.columns import Columns
+        from rich.table import Table
+        
+        results = []
+        for name, cfg in configs:
+            system_prompt = cfg["prompt"]["system"]
+            final_text = build_prompt(system_prompt, recent_logs, user_context, diff_content)
+            msg = generate_and_review(cfg, args, system_prompt, final_text, title_suffix=f"({name})")
+            results.append((name, msg))
+        
+        console.clear()
+        table = Table(title="Commit Message Comparison", show_header=True, header_style="bold magenta")
+        table.add_column("Option A: " + results[0][0])
+        table.add_column("Option B: " + results[1][0])
+        table.add_row(Markdown(results[0][1] or ""), Markdown(results[1][1] or ""))
+        console.print(table)
+        
+        while True:
+            console.print("\n[bold]Select option to use:[/bold] [green](a)[/green] Option A, [green](b)[/green] Option B, [yellow](q)[/yellow] Quit")
+            choice = get_key().lower()
             
-            while True:
-                with console.status(t("main.generating"), spinner="dots"):
-                    commit_message = client.generate_commit_message(final_text)
+            selected_msg = None
+            if choice == 'a':
+                selected_msg = results[0][1]
+            elif choice == 'b':
+                selected_msg = results[1][1]
+            elif choice == 'q':
+                sys.exit(0)
+            
+            if selected_msg:
+                console.print(Panel(Markdown(selected_msg), title="Selected Message", border_style="green"))
+                console.print("Press [y] to commit, [e] to edit, [q] to quit")
                 
-                if not args.interactive:
-                    pyperclip.copy(commit_message)
-                    console.print(Panel(Markdown(commit_message), title="Generated Commit Message", border_style="blue"))
-                    console.print(t("main.copied_to_clipboard"), style="green")
-                    break
+                sub_choice = get_key().lower()
+                if sub_choice == 'y':
+                    if git_commit(selected_msg):
+                        console.print(t("main.action_commit_success"), style="bold green")
+                    sys.exit(0)
+                elif sub_choice == 'e':
+                    selected_msg = launch_editor(selected_msg)
+                    if git_commit(selected_msg):
+                        console.print(t("main.action_commit_success"), style="bold green")
+                    sys.exit(0)
+                elif sub_choice == 'q':
+                    sys.exit(0)
 
-                while True:
-                    console.clear() 
-                    console.print(Panel(Markdown(commit_message), title="Generated Commit Message", border_style="blue"))
-                    
-                    prompt_msg = escape(t("main.action_prompt"))
-                    console.print(prompt_msg, end=" ", style="bold")
-                    sys.stdout.flush()
-                    
-                    choice = get_key().lower()
-                    console.print(choice) 
-                    
-                    if choice == 'y':
-                        try:
-                            pyperclip.copy(commit_message)
-                        except Exception:
-                            pass
-                        
-                        console.print(t("main.action_commit_running"), style="yellow")
-                        if git_commit(commit_message):
-                            console.print(t("main.action_commit_success"), style="bold green")
-                        else:
-                            console.print(t("main.action_commit_failed"), style="bold red")
-                        return
-                    
-                    elif choice == 'e':
-                        commit_message = launch_editor(commit_message)
-                        continue 
-                        
-                    elif choice == 'r':
-                        break 
-                        
-                    elif choice == 'n' or choice == '\x03' or choice == 'q':
-                        console.print(t("main.action_canceled"), style="yellow")
-                        os._exit(0)
-            
-        except Exception as e:
-            console.print(f"Error calling LLM API: {e}", style="bold red")
-            console.print(t("main.api_error"), style="yellow")
+    else:
+        cfg = configs[0][1]
+        system_prompt = cfg["prompt"]["system"]
+        final_text = build_prompt(system_prompt, recent_logs, user_context, diff_content)
+        
+        if cfg.get("llm", {}).get("provider"):
+            generate_and_review(cfg, args, system_prompt, final_text)
+        else:
             try:
                 pyperclip.copy(final_text)
                 console.print(t("main.prompt_copied"), style="green")
             except:
-                pass
-    else:
-        try:
-            pyperclip.copy(final_text)
-            console.print(t("main.prompt_copied"), style="green")
-            if user_context:
-                console.print(t("main.context_added", user_context), style="blue")
-        except pyperclip.PyperclipException:
-            console.print(t("main.manual_copy_required"), style="yellow")
-            console.print(final_text)
-        except Exception as e:
-            console.print(t("common.error", e), style="bold red")
+                console.print(final_text)
 
 if __name__ == "__main__":
     main()
