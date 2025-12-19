@@ -35,8 +35,8 @@ def detect_language() -> str:
 
     # 2. OSのロケール設定
     try:
-        # getdefaultlocaleは (language_code, encoding) を返す (例: ('ja_JP', 'cp932'))
-        loc = locale.getdefaultlocale()
+        # getdefaultlocale is deprecated. Use getlocale instead.
+        loc = locale.getlocale()
         if loc and loc[0]:
             lang = loc[0].split('_')[0] # 'ja_JP' -> 'ja'
             return lang
