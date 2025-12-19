@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import platformdirs
+import copy
 
 try:
     import tomllib
@@ -69,7 +70,7 @@ def resolve_config(config, context_name=None, template_name=None, model_name=Non
     """
     指定されたコンテキスト、テンプレート、モデルに基づいて設定を解決・マージした新しい設定辞書を返す。
     """
-    resolved_config = config.copy()
+    resolved_config = copy.deepcopy(config)
     
     target_template = template_name
     target_model = model_name
