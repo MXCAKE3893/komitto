@@ -52,6 +52,28 @@ def get_git_log(limit=5):
         pass
     return None
 
+def get_commit_messages(limit=20):
+    """分析用にコミットメッセージのみを取得する"""
+    cmd = [
+        "git", "log", 
+        f"-n {limit}", 
+        "--no-merges",
+        "--pretty=format:%B" 
+    ]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+        if result.returncode == 0 and result.stdout:
+            # Use NUL as separator to safely split messages
+            cmd[-1] = "--pretty=format:%B%n%x00"
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+            
+            messages = [msg.strip() for msg in result.stdout.split('\0') if msg.strip()]
+            return messages
+    except Exception:
+        pass
+    return []
+
 def git_commit(message):
     """メッセージを指定してコミットを実行する"""
     if not message.strip():

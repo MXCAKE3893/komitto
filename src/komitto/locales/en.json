@@ -38,5 +38,17 @@
         "recent_logs_instruction": "Consider context and format based on the following history:\n\n{0}",
         "user_context_title": "## 💡 Additional Context from User",
         "user_context_instruction": "User Note: {0}"
+    },
+    "learn": {
+        "no_history": "Warning: No commit history found (or not a git repo). Cannot learn style.",
+        "analyzing": "Analyzing {0} recent commits...",
+        "analyzing_status": "Asking AI to analyze style...",
+        "suggested_prompt_title": "Suggested System Prompt",
+        "apply_instruction_title": "To apply this style:",
+        "apply_instruction_step0": "0. Run 'komitto init' if you don't have a config file yet.",
+        "apply_instruction_step1": "1. Open 'komitto.toml'",
+        "apply_instruction_step2": "2. Update the 'system' key under '[prompt]' section.",
+        "apply_instruction_note": "Note: This command does not modify the config file automatically for safety reasons.",
+        "error": "Error during analysis: {0}"
     }
 }

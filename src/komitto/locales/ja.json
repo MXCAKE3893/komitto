@@ -38,5 +38,17 @@
         "recent_logs_instruction": "以下の履歴を踏まえて、文脈や形式を考慮してください:\n\n{0}",
         "user_context_title": "## 💡 ユーザーからの追加コンテキスト（補足情報）",
         "user_context_instruction": "ユーザーメモ: {0}"
+    },
+    "learn": {
+        "no_history": "警告: コミット履歴が見つかりません（またはgitリポジトリではありません）。スタイルの学習ができません。",
+        "analyzing": "直近 {0} 件のコミットを分析中...",
+        "analyzing_status": "AIがスタイルを分析しています...",
+        "suggested_prompt_title": "提案されたシステムプロンプト",
+        "apply_instruction_title": "このスタイルを適用するには:",
+        "apply_instruction_step0": "0. 設定ファイルがない場合は 'komitto init' で作成します。",
+        "apply_instruction_step1": "1. 'komitto.toml' を開きます",
+        "apply_instruction_step2": "2. '[prompt]' セクションの 'system' キーを更新してください。",
+        "apply_instruction_note": "注: 安全のため、このコマンドは設定ファイルを自動的に書き換えません。",
+        "error": "分析中にエラーが発生しました: {0}"
     }
 }

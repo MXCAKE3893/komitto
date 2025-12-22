@@ -182,6 +182,13 @@ def main():
         init_config()
         return
 
+    if len(args.context) == 1 and args.context[0] == "learn":
+        base_config = load_config()
+        config = resolve_config(base_config, model_name=args.model)
+        from .learn import learn_style_from_history
+        learn_style_from_history(config)
+        return
+
     base_config = load_config()
 
     if args.compare:
