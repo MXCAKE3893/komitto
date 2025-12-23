@@ -63,7 +63,7 @@ Return ONLY the generated System Prompt. Do not include explanations.
 The prompt itself should be written in the primary language of the commit history (e.g., if history is Japanese, write the prompt instructions in Japanese).
 """
 
-    console.print(f"[bold cyan]{t('learn.analyzing', len(messages))}[/bold cyan]")
+    console.print(f"[bold #61afef]📚 {t('learn.analyzing', len(messages))}[/bold #61afef]")
 
     try:
         client = create_llm_client(llm_config)
@@ -72,27 +72,47 @@ The prompt itself should be written in the primary language of the commit histor
         # Cursor effect for richer UI
         cursor = "█"
         
-        with Live(Panel(Markdown(""), title=t("learn.analyzing_status"), border_style="green"), console=console, refresh_per_second=5, vertical_overflow="visible") as live:
+        with Live(
+            Panel(
+                Markdown(""), 
+                title="⏳ " + t("learn.analyzing_status"), 
+                border_style="#e5c07b",
+                title_align="left"
+            ), 
+            console=console, 
+            refresh_per_second=5, 
+            vertical_overflow="visible"
+        ) as live:
             for chunk, _ in client.stream_commit_message(analysis_prompt):
                 if chunk:
                     suggestion += chunk
                     # Show cursor at the end
-                    live.update(Panel(Markdown(suggestion + cursor), title=t("learn.analyzing_status"), border_style="green"))
+                    live.update(Panel(
+                        Markdown(suggestion + cursor), 
+                        title="⏳ " + t("learn.analyzing_status"), 
+                        border_style="#e5c07b",
+                        title_align="left"
+                    ))
         
         console.clear()
-        console.print(Panel(Markdown(suggestion), title=t("learn.suggested_prompt_title"), border_style="green"))
+        console.print(Panel(
+            Markdown(suggestion), 
+            title="✅ " + t("learn.suggested_prompt_title"), 
+            border_style="#98c379",
+            title_align="left"
+        ))
         
         try:
             pyperclip.copy(suggestion)
-            console.print(t("main.prompt_copied"), style="green")
+            console.print(f"[#98c379]📋 {t('main.prompt_copied')}[/#98c379]")
         except Exception:
-            console.print(t("main.manual_copy_required"), style="yellow")
+            console.print(f"[#e5c07b]⚠️  {t('main.manual_copy_required')}[/#e5c07b]")
 
-        console.print(f"\n[bold]{t('learn.apply_instruction_title')}[/bold]")
-        console.print(t("learn.apply_instruction_step0"))
-        console.print(t("learn.apply_instruction_step1"))
-        console.print(t("learn.apply_instruction_step2"))
-        console.print(f"\n[dim]{t('learn.apply_instruction_note')}[/dim]")
+        console.print(f"\n[bold #61afef]📝 {t('learn.apply_instruction_title')}[/bold #61afef]")
+        console.print(f"[#abb2bf]  1. {t('learn.apply_instruction_step0')}[/#abb2bf]")
+        console.print(f"[#abb2bf]  2. {t('learn.apply_instruction_step1')}[/#abb2bf]")
+        console.print(f"[#abb2bf]  3. {t('learn.apply_instruction_step2')}[/#abb2bf]")
+        console.print(f"\n[dim #5c6370]ℹ️  {t('learn.apply_instruction_note')}[/dim #5c6370]")
 
     except Exception as e:
-        console.print(f"[red]{t('learn.error', e)}[/red]")
+        console.print(f"[#e06c75]❌ {t('learn.error', e)}[/#e06c75]")

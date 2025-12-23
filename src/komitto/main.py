@@ -66,7 +66,16 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
             start_time = time.time()
             input_chars = len(final_text)
             
-            with Live(Panel(Markdown(""), title=f"Generating {title_suffix}...", border_style="blue"), console=console, refresh_per_second=10) as live:
+            with Live(
+                Panel(
+                    Markdown(""), 
+                    title=f"⏳ Generating {title_suffix}...", 
+                    border_style="#e5c07b",
+                    title_align="left"
+                ), 
+                console=console, 
+                refresh_per_second=10
+            ) as live:
                 for chunk, usage in client.stream_commit_message(final_text):
                     if chunk:
                         commit_message += chunk
@@ -118,8 +127,13 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
             
             if not args.interactive and not args.compare:
                 pyperclip.copy(commit_message)
-                console.print(Panel(Markdown(commit_message), title=final_panel_title, border_style="blue"))
-                console.print(t("main.copied_to_clipboard"), style="green")
+                console.print(Panel(
+                    Markdown(commit_message), 
+                    title=f"✅ {final_panel_title}", 
+                    border_style="#98c379",
+                    title_align="left"
+                ))
+                console.print(f"[#98c379]📋 {t('main.copied_to_clipboard')}[/#98c379]")
                 return commit_message
 
             # Interactive loop (or return for compare mode to handle display)
@@ -131,7 +145,12 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
                 if usage_stats:
                      console.print(f"[dim]Tokens: Prompt {usage_stats.get('prompt_tokens', '?')}, Completion {usage_stats.get('completion_tokens', '?')}, Total {usage_stats.get('total_tokens', '?')}[/dim]", justify="right")
 
-                console.print(Panel(Markdown(commit_message), title=final_panel_title, border_style="blue"))
+                console.print(Panel(
+                    Markdown(commit_message), 
+                    title=f"✅ {final_panel_title}", 
+                    border_style="#98c379",
+                    title_align="left"
+                ))
                 
                 prompt_msg = escape(t("main.action_prompt"))
                 console.print(prompt_msg, end=" ", style="bold")
@@ -146,12 +165,12 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
                     except Exception:
                         pass
                     
-                    console.print(t("main.action_commit_running"), style="yellow")
+                    console.print(f"[#e5c07b]📤 {t('main.action_commit_running')}[/#e5c07b]")
                     if git_commit(commit_message):
-                        console.print(t("main.action_commit_success"), style="bold green")
+                        console.print(f"[#98c379]✅ {t('main.action_commit_success')}[/#98c379]")
                         return commit_message
                     else:
-                        console.print(t("main.action_commit_failed"), style="bold red")
+                        console.print(f"[#e06c75]❌ {t('main.action_commit_failed')}[/#e06c75]")
                         return None
                 
                 elif choice == 'e':
@@ -162,10 +181,10 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
                     break # Break inner loop to regenerate
                     
                 elif choice == 'n' or choice == '\x03' or choice == 'q':
-                    console.print(t("main.action_canceled"), style="yellow")
+                    console.print(f"[#e5c07b]⚠️  {t('main.action_canceled')}[/#e5c07b]")
                     os._exit(0)
     except Exception as e:
-        console.print(f"Error calling LLM API {title_suffix}: {e}", style="bold red")
+        console.print(f"[#e06c75]❌ Error calling LLM API {title_suffix}: {e}[/#e06c75]")
         return None
 
 def main():
@@ -210,51 +229,15 @@ def main():
     user_context = " ".join(args.context)
 
     if args.compare:
-        from rich.columns import Columns
-        from rich.table import Table
-        
-        results = []
+        compare_configs = []
         for name, cfg in configs:
             system_prompt = cfg["prompt"]["system"]
             final_text = build_prompt(system_prompt, recent_logs, user_context, diff_content)
-            msg = generate_and_review(cfg, args, system_prompt, final_text, title_suffix=f"({name})")
-            results.append((name, msg))
+            compare_configs.append((name, cfg, final_text))
         
-        console.clear()
-        table = Table(title="Commit Message Comparison", show_header=True, header_style="bold magenta")
-        table.add_column("Option A: " + results[0][0])
-        table.add_column("Option B: " + results[1][0])
-        table.add_row(Markdown(results[0][1] or ""), Markdown(results[1][1] or ""))
-        console.print(table)
-        
-        while True:
-            console.print("\n[bold]Select option to use:[/bold] [green](a)[/green] Option A, [green](b)[/green] Option B, [yellow](q)[/yellow] Quit")
-            choice = get_key().lower()
-            
-            selected_msg = None
-            if choice == 'a':
-                selected_msg = results[0][1]
-            elif choice == 'b':
-                selected_msg = results[1][1]
-            elif choice == 'q':
-                sys.exit(0)
-            
-            if selected_msg:
-                console.print(Panel(Markdown(selected_msg), title="Selected Message", border_style="green"))
-                console.print("Press [y] to commit, [e] to edit, [q] to quit")
-                
-                sub_choice = get_key().lower()
-                if sub_choice == 'y':
-                    if git_commit(selected_msg):
-                        console.print(t("main.action_commit_success"), style="bold green")
-                    sys.exit(0)
-                elif sub_choice == 'e':
-                    selected_msg = launch_editor(selected_msg)
-                    if git_commit(selected_msg):
-                        console.print(t("main.action_commit_success"), style="bold green")
-                    sys.exit(0)
-                elif sub_choice == 'q':
-                    sys.exit(0)
+        from .tui.app import KomittoApp
+        app = KomittoApp(compare_configs=compare_configs)
+        app.run()
 
     else:
         cfg = configs[0][1]
@@ -262,7 +245,12 @@ def main():
         final_text = build_prompt(system_prompt, recent_logs, user_context, diff_content)
         
         if cfg.get("llm", {}).get("provider"):
-            generate_and_review(cfg, args, system_prompt, final_text)
+            if args.interactive:
+                from .tui.app import KomittoApp
+                app = KomittoApp(config=cfg, prompt=final_text)
+                app.run()
+            else:
+                generate_and_review(cfg, args, system_prompt, final_text)
         else:
             try:
                 pyperclip.copy(final_text)

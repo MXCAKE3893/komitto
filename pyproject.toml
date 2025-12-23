@@ -25,6 +25,7 @@ dependencies = [
     "google-genai",
     "anthropic",
     "rich",
+    "textual",
 ]
 
 [project.optional-dependencies]

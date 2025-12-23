@@ -1,0 +1,135 @@
+/* ============================================
+   Komitto TUI - Unified Design System
+   ============================================ */
+
+/* Color Palette */
+/* Primary:   #61afef (blue)
+   Success:   #98c379 (green)
+   Warning:   #e5c07b (yellow)
+   Error:     #e06c75 (red)
+   Accent:    #c678dd (purple)
+   Backgrounds: #1e1e1e, #252526, #2c2c2c
+   Borders:   #3e4451, #5c6370
+   Text:      #abb2bf, #e0e0e0
+*/
+
+/* ============================================
+   Base Screen
+   ============================================ */
+Screen {
+    background: #1e1e1e;
+    color: #e0e0e0;
+}
+
+/* ============================================
+   Custom Header
+   ============================================ */
+#custom-header {
+    dock: top;
+    height: 1;
+    background: #2c2c2c;
+    color: #61afef;
+    content-align: center middle;
+    text-style: bold;
+    border-bottom: solid #5c6370;
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+Footer {
+    background: #2c2c2c;
+    color: #61afef;
+    dock: bottom;
+    height: 1;
+}
+
+/* ============================================
+   Main Container
+   ============================================ */
+#main-container {
+    width: 100%;
+    height: 1fr;
+    padding: 1 2;
+    layout: vertical;
+}
+
+/* ============================================
+   Single Mode - Content Area
+   ============================================ */
+#content-area {
+    width: 100%;
+    height: 1fr;
+    background: #252526;
+    border: round #5c6370;
+    padding: 1 2;
+    margin-bottom: 1;
+}
+
+#markdown-view {
+    width: 100%;
+    height: 1fr;
+    overflow-y: auto;
+}
+
+/* ============================================
+   Status Label
+   ============================================ */
+#status-label {
+    width: 100%;
+    text-align: center;
+    padding: 0 0 1 0;
+    margin-bottom: 1;
+    border-bottom: solid #3e4451;
+    color: #abb2bf;
+    text-style: bold;
+}
+
+.status-generating {
+    color: #e5c07b;
+    text-style: bold italic;
+}
+
+.status-ready {
+    color: #98c379;
+    text-style: bold;
+}
+
+/* ============================================
+   Compare Mode
+   ============================================ */
+#compare-area {
+    width: 100%;
+    height: 1fr;
+    layout: horizontal;
+    margin-bottom: 1;
+}
+
+.panel {
+    width: 50%;
+    height: 100%;
+    background: #252526;
+    border: round #5c6370;
+    padding: 1 2;
+    margin: 0 1;
+}
+
+.panel:focus-within {
+    border: round #61afef;
+}
+
+.panel-header {
+    width: 100%;
+    text-align: center;
+    border-bottom: solid #3e4451;
+    padding: 0 0 1 0;
+    margin-bottom: 1;
+    color: #c678dd;
+    text-style: bold;
+}
+
+#markdown-view-a, #markdown-view-b {
+    width: 100%;
+    height: 1fr;
+    overflow-y: auto;
+}
