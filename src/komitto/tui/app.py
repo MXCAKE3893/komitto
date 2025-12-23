@@ -88,6 +88,7 @@ class KomittoApp(App):
                 with Vertical(id="content-area"):
                     yield Label("⏳ Generating commit message...", id="status-label", classes="status-generating")
                     yield Markdown("", id="markdown-view")
+                    yield Label("", id="stats-label", classes="stats-label")
 
         yield Footer()
 
@@ -164,6 +165,7 @@ class KomittoApp(App):
     @work(exclusive=True, thread=True)
     def generate_message(self) -> None:
         """Generate commit message in background (Single mode)."""
+        import time
         self.app.call_from_thread(setattr, self, "current_state", self.STATE_GENERATING)
         self.app.call_from_thread(setattr, self, "generated_text", "")
 
@@ -175,10 +177,38 @@ class KomittoApp(App):
         try:
             client = create_llm_client(llm_config)
             full_text = ""
+            usage_stats = None
+            start_time = time.time()
+            input_chars = len(self.prompt_text)
+            
             for chunk, usage in client.stream_commit_message(self.prompt_text):
                 if chunk:
                     full_text += chunk
                     self.app.call_from_thread(setattr, self, "generated_text", full_text)
+                
+                if usage:
+                    usage_stats = usage
+                
+                # Update statistics
+                elapsed = time.time() - start_time
+                if elapsed > 0:
+                    stats_text = ""
+                    if usage_stats:
+                        p_tok = usage_stats.get('prompt_tokens', '?')
+                        c_tok = usage_stats.get('completion_tokens', '?')
+                        t_tok = usage_stats.get('total_tokens', '?')
+                        speed = c_tok / elapsed if isinstance(c_tok, int) else 0
+                        stats_text = f"📊 Input: {input_chars} chars ({p_tok} tok) | Output: {c_tok} tok | Total: {t_tok} tok | Speed: {speed:.1f} tok/s"
+                    else:
+                        est_tok = len(full_text) // 4
+                        speed = len(full_text) / elapsed
+                        stats_text = f"📊 Input: {input_chars} chars | Est. Output: ~{est_tok} tok | Speed: {speed:.1f} char/s"
+                    
+                    try:
+                        stats_label = self.query_one("#stats-label")
+                        self.app.call_from_thread(stats_label.update, stats_text)
+                    except:
+                        pass
             
             self.app.call_from_thread(setattr, self, "current_state", self.STATE_REVIEW)
             
