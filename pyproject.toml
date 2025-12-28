@@ -43,4 +43,4 @@ Homepage = "https://github.com/mxcake3893/komitto"
 where = ["src"]
 
 [tool.setuptools.package-data]
-komitto = ["locales/*.json"]
+komitto = ["locales/*.json", "tui/*.tcss"]
