@@ -10,10 +10,12 @@ A CLI tool for generating semantic commit message prompts from `git diff` inform
 - Converts change details into a structured XML/JSON format that LLMs can understand.
 - **LLM API Integration**: Directly calls APIs from providers like OpenAI, Gemini, Anthropic, Ollama, etc., using settings defined in `komitto.toml`.
 - **Contextual Understanding**: Automatically includes recent commit logs in the prompt to preserve project context and style.
-- Combines with system prompts specifically designed for commit message generation; templates can be overridden per‑context, per‑template, or per‑model.
+- **Style Learning** (`komitto learn`): Analyzes your commit history to generate a custom system prompt that matches your project's commit style.
+- Combines with system prompts specifically designed for commit message generation; templates can be overridden per-context, per-template, or per-model.
 - Copies the final generated prompt (or raw LLM output) to the clipboard.
 - Provides functionality to attach additional context about the changes via command-line arguments.
-- **Interactive Mode** (`-i`/`--interactive`): Review, edit, regenerate, or commit the generated message in a REPL‑style loop.
+- **Interactive Mode** (`-i`/`--interactive`): Review, edit, regenerate, or commit the generated message in a rich TUI interface.
+- **TUI Interface**: Built with [Textual](https://textual.textualize.io/) for a modern terminal experience with real-time streaming.
 - **Editor Integration**: Edit the commit message using your preferred editor (VISUAL/EDITOR/GIT_EDITOR).
 - **Robust Error Handling**: Gracefully handles various error scenarios with helpful feedback.
 
@@ -50,7 +52,7 @@ komitto
 # -> Prompt copied!
 ```
 
-### AI‑Automated Generation (Recommended when configured)
+### AI-Automated Generation (Recommended when configured)
 
 Configure `provider`, `model`, and other API settings in `komitto.toml`. Then running `komitto` will call the LLM, stream tokens, and copy the final commit message to the clipboard.
 
@@ -70,11 +72,11 @@ Available commands during the interactive loop:
 - `y` – Accept and commit (`git commit -m <msg>`)
 - `e` – Edit the message in an external editor
 - `r` – Regenerate
-- `n` or `Ctrl‑C` – Cancel
+- `n` or `Ctrl-C` – Cancel
 
 ### Comparison Mode
 
-Compare two different configurations side‑by‑side:
+Compare two different configurations side-by-side:
 
 ```bash
 komitto --compare ctxA ctxB
@@ -84,7 +86,7 @@ Two columns are displayed; press `a` or `b` to select one, then commit or edit a
 
 ### Passing Additional Context
 
-Add free‑form context that will be merged into the prompt:
+Add free-form context that will be merged into the prompt:
 
 ```bash
 komitto "Urgent bug fix for payment processing"
@@ -96,11 +98,35 @@ During interactive mode you can invoke the configured editor at any time. The se
 1. `$GIT_EDITOR`
 2. `$VISUAL`
 3. `$EDITOR`
-4. Git’s built‑in default (`notepad` on Windows, `vi` otherwise).
+4. Git's built-in default (`notepad` on Windows, `vi` otherwise).
+
+### Style Learning
+
+Analyze your existing commit history to automatically generate a system prompt tailored to your project:
+
+```bash
+komitto learn
+```
+
+This command:
+1. Reads recent commit messages from your repository
+2. Analyzes the language, format, and conventions used
+3. Generates a custom system prompt matching your style
+4. Optionally updates `komitto.toml` automatically
+
+### CLI Options
+
+| Option                      | Description                                      |
+|-----------------------------|--------------------------------------------------|
+| `-i`, `--interactive`       | Enable interactive TUI mode                      |
+| `-c`, `--context-name NAME` | Use a specific context profile from config       |
+| `-t`, `--template NAME`     | Use a specific prompt template from config       |
+| `-m`, `--model NAME`        | Use a specific model from config                 |
+| `--compare CTX1 CTX2`       | Compare outputs from two context configurations  |
 
 ## Customization via Configuration File
 
-Create a project‑specific configuration with:
+Create a project-specific configuration with:
 
 ```bash
 komitto init
@@ -135,7 +161,7 @@ system = "[{prompt}] Commit message: "
 template = "simple"
 model = "gpt4"
 
-# Excludes are merged from defaults; add project‑specific patterns:
+# Excludes are merged from defaults; add project-specific patterns:
 [git]
 exclude = [
     "node_modules/**",
@@ -156,11 +182,11 @@ base_url = "http://localhost:11434/v1"
 ## How It Works (Internal Flow)
 
 1. `git diff --staged` retrieves staged changes.
-2. Differences are transformed into a structured representation (`file path | operation | surrounding function/class signatures`) in XML‑like format.
-3. The configuration file defines a *system prompt*; this is merged with any user‑provided context and the diff representation to produce the final LLM input.
+2. Differences are transformed into a structured representation (`file path | operation | surrounding function/class signatures`) in XML-like format.
+3. The configuration file defines a *system prompt*; this is merged with any user-provided context and the diff representation to produce the final LLM input.
 4. Depending on CLI flags, the tool either streams tokens live (Rich UI) or returns a complete string instantly.
 5. The resulting text is copied to the clipboard; in interactive mode the user can accept, edit, regenerate, or cancel.
 
 ## License
 
-MIT © 2024‑2025
+MIT © 2024-2025
