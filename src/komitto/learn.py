@@ -17,12 +17,16 @@ def learn_style_from_history(config, limit=20):
     """
     コミット履歴を分析し、スタイルガイド（システムプロンプト案）を生成する
     """
+    from pathlib import Path
+    if not Path("komitto.toml").exists():
+        console.print(t("learn.no_config_file"), style="yellow")
+        return
+    
     llm_config = config.get("llm", {})
     if not llm_config or not llm_config.get("provider"):
         console.print(t("main.api_error"), style="yellow")
         return
 
-    # 履歴取得
     messages = get_commit_messages(limit)
     if not messages:
         console.print(t("learn.no_history"), style="yellow")
@@ -30,13 +34,12 @@ def learn_style_from_history(config, limit=20):
 
     history_text = "\n---\n".join(messages)
 
-    # ツール仕様（Facts）の定義
     tool_specs = """
 ## Technical Specifications (MUST be included in the system prompt)
 The AI will receive input in a custom XML format, not standard 'git diff'. The system prompt MUST explain how to parse this:
 - Root element: `<changeset>`
-- Files: `<file path="...">`
-- Code blocks: `<chunk scope="...">` (scope indicates class/function context)
+- Files: `<file path=\"...\">
+- Code blocks: `<chunk scope=\"...\">` (scope indicates class/function context)
 - Change types: `<type>` (modification, addition, deletion)
 - Content: `<original>` (old code) vs `<modified>` (new code). The intent lies in the difference.
 - Constraint: Only code inside `<modified>` represents the final state.
@@ -69,12 +72,11 @@ The prompt itself should be written in the primary language of the commit histor
         client = create_llm_client(llm_config)
         suggestion = ""
         
-        # Cursor effect for richer UI
         cursor = "█"
         
         with Live(
             Panel(
-                Markdown(""), 
+                Markdown("", style="#abb2bf"), 
                 title="⏳ " + t("learn.analyzing_status"), 
                 border_style="#e5c07b",
                 title_align="left"
@@ -86,9 +88,8 @@ The prompt itself should be written in the primary language of the commit histor
             for chunk, _ in client.stream_commit_message(analysis_prompt):
                 if chunk:
                     suggestion += chunk
-                    # Show cursor at the end
                     live.update(Panel(
-                        Markdown(suggestion + cursor), 
+                        Markdown(suggestion + cursor, style="#abb2bf"), 
                         title="⏳ " + t("learn.analyzing_status"), 
                         border_style="#e5c07b",
                         title_align="left"
@@ -96,7 +97,7 @@ The prompt itself should be written in the primary language of the commit histor
         
         console.clear()
         console.print(Panel(
-            Markdown(suggestion), 
+            Markdown(suggestion, style="#abb2bf"), 
             title="✅ " + t("learn.suggested_prompt_title"), 
             border_style="#98c379",
             title_align="left"
@@ -108,11 +109,33 @@ The prompt itself should be written in the primary language of the commit histor
         except Exception:
             console.print(f"[#e5c07b]⚠️  {t('main.manual_copy_required')}[/#e5c07b]")
 
-        console.print(f"\n[bold #61afef]📝 {t('learn.apply_instruction_title')}[/bold #61afef]")
-        console.print(f"[#abb2bf]  1. {t('learn.apply_instruction_step0')}[/#abb2bf]")
-        console.print(f"[#abb2bf]  2. {t('learn.apply_instruction_step1')}[/#abb2bf]")
-        console.print(f"[#abb2bf]  3. {t('learn.apply_instruction_step2')}[/#abb2bf]")
-        console.print(f"\n[dim #5c6370]ℹ️  {t('learn.apply_instruction_note')}[/dim #5c6370]")
+        console.print(f"\n[bold yellow]{t('learn.auto_init_prompt')}[/bold yellow]")
+        console.print("[dim](y を入力して Enter を押すと適用、その他のキーで手動設定)[/dim]")
+        console.print("[bold cyan]▶ [/bold cyan]", end="")
+        
+        response = input().strip().lower()
+        
+        if response == 'y':
+            console.print(f"[#98c379]{t('learn.auto_init_yes')}[/#98c379]")
+            
+            from .config import init_config_with_prompt
+            success, message, is_new = init_config_with_prompt(suggestion)
+            
+            if success:
+                if is_new:
+                    console.print(f"[#98c379]{t('learn.auto_init_created', message)}[/#98c379]")
+                else:
+                    console.print(f"[#98c379]{t('learn.auto_init_backup_created', message)}[/#98c379]")
+                    console.print(f"[#98c379]{t('learn.auto_init_updated', 'komitto.toml')}[/#98c379]")
+            else:
+                console.print(f"[#e06c75]{t('learn.auto_init_failed', message)}[/#e06c75]")
+        else:
+            console.print(f"[#e5c07b]{t('learn.auto_init_no')}[/#e5c07b]")
+            console.print(f"\n[bold #61afef]📝 {t('learn.apply_instruction_title')}[/bold #61afef]")
+            console.print(f"[#abb2bf]  1. {t('learn.apply_instruction_step0')}[/#abb2bf]")
+            console.print(f"[#abb2bf]  2. {t('learn.apply_instruction_step1')}[/#abb2bf]")
+            console.print(f"[#abb2bf]  3. {t('learn.apply_instruction_step2')}[/#abb2bf]")
+            console.print(f"\n[dim #5c6370]ℹ️  {t('learn.apply_instruction_note')}[/dim #5c6370]")
 
     except Exception as e:
         console.print(f"[#e06c75]❌ {t('learn.error', e)}[/#e06c75]")

@@ -40,6 +40,7 @@
         "user_context_instruction": "User Note: {0}"
     },
     "learn": {
+        "no_config_file": "⚠️  komitto.toml not found. Please run 'komitto init' first to set up LLM configuration.",
         "no_history": "Warning: No commit history found (or not a git repo). Cannot learn style.",
         "analyzing": "Analyzing {0} recent commits...",
         "analyzing_status": "Asking AI to analyze style...",
@@ -49,6 +50,13 @@
         "apply_instruction_step1": "1. Open 'komitto.toml'",
         "apply_instruction_step2": "2. Update the 'system' key under '[prompt]' section.",
         "apply_instruction_note": "Note: This command does not modify the config file automatically for safety reasons.",
+        "auto_init_prompt": "💾 Apply this prompt to komitto.toml?",
+        "auto_init_yes": "✅ Applying configuration...",
+        "auto_init_no": "⚠️  Skipped automatic configuration.",
+        "auto_init_created": "✅ Created {0} with the generated prompt.",
+        "auto_init_updated": "✅ Updated {0}.",
+        "auto_init_backup_created": "📦 Backup created: {0}",
+        "auto_init_failed": "❌ Failed to create/update config file: {0}",
         "error": "Error during analysis: {0}"
     }
 }
