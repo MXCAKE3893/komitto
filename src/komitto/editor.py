@@ -31,12 +31,12 @@ def launch_editor(initial_message: str) -> str:
     try:
         if os.name == 'nt':
             cmd = f'{editor} "{tmp_file_path}"'
-            subprocess.run(cmd, check=True, shell=True)
+            subprocess.run(cmd, check=True, shell=True, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)
         else:
             import shlex
             cmd_args = shlex.split(editor)
             cmd_args.append(tmp_file_path)
-            subprocess.run(cmd_args, check=True)
+            subprocess.run(cmd_args, check=True, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)
         
         with open(tmp_file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()

@@ -9,6 +9,7 @@ import pyperclip
 from komitto.llm import create_llm_client
 from komitto.git_utils import git_commit
 from komitto.editor import launch_editor
+from komitto.i18n import t
 
 
 class CustomHeader(Static):
@@ -166,12 +167,12 @@ class KomittoApp(App):
     def generate_message(self) -> None:
         """Generate commit message in background (Single mode)."""
         import time
-        self.app.call_from_thread(setattr, self, "current_state", self.STATE_GENERATING)
-        self.app.call_from_thread(setattr, self, "generated_text", "")
+        self.call_from_thread(setattr, self, "current_state", self.STATE_GENERATING)
+        self.call_from_thread(setattr, self, "generated_text", "")
 
         llm_config = self.config.get("llm", {})
         if not llm_config or not llm_config.get("provider"):
-            self.app.call_from_thread(self.notify, "No LLM provider configured.", severity="error")
+            self.call_from_thread(self.notify, "No LLM provider configured.", severity="error")
             return
 
         try:
@@ -184,7 +185,7 @@ class KomittoApp(App):
             for chunk, usage in client.stream_commit_message(self.prompt_text):
                 if chunk:
                     full_text += chunk
-                    self.app.call_from_thread(setattr, self, "generated_text", full_text)
+                    self.call_from_thread(setattr, self, "generated_text", full_text)
                 
                 if usage:
                     usage_stats = usage
@@ -206,22 +207,22 @@ class KomittoApp(App):
                     
                     try:
                         stats_label = self.query_one("#stats-label")
-                        self.app.call_from_thread(stats_label.update, stats_text)
+                        self.call_from_thread(stats_label.update, stats_text)
                     except:
                         pass
             
-            self.app.call_from_thread(setattr, self, "current_state", self.STATE_REVIEW)
+            self.call_from_thread(setattr, self, "current_state", self.STATE_REVIEW)
             
         except Exception as e:
-            self.app.call_from_thread(self.notify, f"Error: {e}", severity="error")
-            self.app.call_from_thread(setattr, self, "current_state", self.STATE_REVIEW)
+            self.call_from_thread(self.notify, f"Error: {e}", severity="error")
+            self.call_from_thread(setattr, self, "current_state", self.STATE_REVIEW)
 
     @work(exclusive=True, thread=True)
     def generate_compare(self) -> None:
         """Generate two messages in parallel."""
-        self.app.call_from_thread(setattr, self, "current_state", self.STATE_GENERATING)
-        self.app.call_from_thread(setattr, self, "generated_text_a", "")
-        self.app.call_from_thread(setattr, self, "generated_text_b", "")
+        self.call_from_thread(setattr, self, "current_state", self.STATE_GENERATING)
+        self.call_from_thread(setattr, self, "generated_text_a", "")
+        self.call_from_thread(setattr, self, "generated_text_b", "")
 
         # compare_configs structure: [(name, config, prompt), (name, config, prompt)]
         prompt_a = self.compare_configs[0][2]
@@ -236,9 +237,9 @@ class KomittoApp(App):
                 for chunk, _ in client.stream_commit_message(prompt):
                     if chunk:
                         full_text += chunk
-                        self.app.call_from_thread(setattr, self, target_attr, full_text)
+                        self.call_from_thread(setattr, self, target_attr, full_text)
             except Exception as e:
-                self.app.call_from_thread(self.notify, f"Error generating {target_attr}: {e}", severity="error")
+                self.call_from_thread(self.notify, f"Error generating {target_attr}: {e}", severity="error")
 
         import threading
         t1 = threading.Thread(target=run_gen, args=(self.config_a, prompt_a, "generated_text_a"))
@@ -249,7 +250,7 @@ class KomittoApp(App):
         t1.join()
         t2.join()
 
-        self.app.call_from_thread(setattr, self, "current_state", self.STATE_COMPARE)
+        self.call_from_thread(setattr, self, "current_state", self.STATE_COMPARE)
 
     def action_select_a(self) -> None:
         if self.current_state == self.STATE_COMPARE:
@@ -269,8 +270,20 @@ class KomittoApp(App):
         if self.current_state != self.STATE_REVIEW:
             return
         
-        self.notify("📤 Committing...", severity="information")
-        self.do_commit(self.generated_text)
+        # Suspend the TUI to allow the subprocess (git commit) to access the terminal.
+        # This is critical for interactive operations like GPG passphrase prompts.
+        with self.suspend():
+            print(f"\n{t('main.action_commit_running')}")
+            success = git_commit(self.generated_text)
+            
+        if success:
+            self.notify(t('main.action_commit_success'), severity="information")
+            # Wait a moment for the user to see the success message
+            import time
+            time.sleep(1)
+            self.exit()
+        else:
+            self.notify(t('main.action_commit_failed'), severity="error")
 
     def action_edit(self) -> None:
         if self.current_state != self.STATE_REVIEW:
@@ -288,23 +301,9 @@ class KomittoApp(App):
         if self.current_state != self.STATE_REVIEW:
             return
         pyperclip.copy(self.generated_text)
-        self.notify("📋 Copied to clipboard!", severity="information")
+        self.notify(t('main.copied_to_clipboard'), severity="information")
 
     def action_regenerate(self) -> None:
         if self.current_state != self.STATE_REVIEW:
             return
         self.generate_message()
-
-    @work(thread=True)
-    def do_commit(self, message: str) -> None:
-        try:
-            success = git_commit(message)
-            if success:
-                self.app.call_from_thread(self.notify, "✅ Commit successful!", severity="information")
-                import time
-                time.sleep(1)
-                self.app.call_from_thread(self.exit)
-            else:
-                self.app.call_from_thread(self.notify, "❌ Commit failed.", severity="error")
-        except Exception as e:
-            self.app.call_from_thread(self.notify, f"⚠️ Commit error: {e}", severity="error")
