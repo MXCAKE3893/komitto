@@ -42,7 +42,6 @@ class AnthropicClient(LLMClient):
                 # For now, we yield text.
                 yield text, None
             
-            # After stream, try to get usage
             final_msg = stream.get_final_message()
             if final_msg.usage:
                 usage = {

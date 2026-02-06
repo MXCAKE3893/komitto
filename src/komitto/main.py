@@ -27,7 +27,6 @@ console = Console()
 def get_key():
     """Reads a single key from the console."""
     if os.name == 'nt':
-        # msvcrt.getch() returns bytes, decode to string
         key = msvcrt.getch()
         try:
             return key.decode('utf-8')
@@ -136,7 +135,6 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
                 console.print(f"[#98c379]📋 {t('main.copied_to_clipboard')}[/#98c379]")
                 return commit_message
 
-            # Interactive loop (or return for compare mode to handle display)
             if args.compare:
                 return commit_message
 

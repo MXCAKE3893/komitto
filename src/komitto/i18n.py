@@ -65,7 +65,6 @@ def t(key: str, *args) -> str:
     lang = get_current_language()
     translations = _load_translations(lang)
     
-    # ドット区切りのキーを探索
     keys = key.split('.')
     value = translations
     

@@ -12,9 +12,7 @@ def get_git_diff(exclude_patterns=None):
 
     cmd = ["git", "diff", "--staged", "--no-prefix", "-U0"]
     
-    # 除外パターンの追加
     if exclude_patterns:
-        # パススペックの区切り文字 "--" を追加してから除外パターンを指定
         cmd.append("--")
         for pattern in exclude_patterns:
             cmd.append(f":(exclude){pattern}")
@@ -64,7 +62,6 @@ def get_commit_messages(limit=20):
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
         if result.returncode == 0 and result.stdout:
-            # Use NUL as separator to safely split messages
             cmd[-1] = "--pretty=format:%B%n%x00"
             result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
             
