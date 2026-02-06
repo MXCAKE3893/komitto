@@ -11,6 +11,7 @@ from komitto.llm import create_llm_client
 from komitto.git_utils import git_commit
 from komitto.editor import launch_editor
 from komitto.i18n import t
+from komitto.cost import calculate_cost, format_cost
 
 
 class CustomHeader(Static):
@@ -198,6 +199,12 @@ class KomittoApp(App):
                         t_tok = usage_stats.get('total_tokens', '?')
                         speed = c_tok / elapsed if isinstance(c_tok, int) else 0
                         stats_text = f"📊 Input: {input_chars} chars ({p_tok} tok) | Output: {c_tok} tok | Total: {t_tok} tok | Speed: {speed:.1f} tok/s"
+                        
+                        if isinstance(p_tok, int) and isinstance(c_tok, int):
+                            cost_data = calculate_cost(llm_config, p_tok, c_tok)
+                            if cost_data:
+                                cost_str = format_cost(cost_data)
+                                stats_text += f" | {cost_str}"
                     else:
                         est_tok = len(full_text) // 4
                         speed = len(full_text) / elapsed

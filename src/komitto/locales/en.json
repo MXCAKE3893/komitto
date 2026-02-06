@@ -62,6 +62,9 @@
     "tui": {
         "regen_title": "🔄 Extra instructions (Enter: Regenerate / Esc: Cancel)",
         "regen_placeholder": "e.g. shorter, in Japanese",
-        "regen_extra_header": "## Extra Instructions"
+        "regen_extra_header": "## Extra Instructions",
+        "cost_unknown": "💰 Cost: Unknown",
+        "cost_small": "💰 Cost: ${0} (~{1}μ$)",
+        "cost_normal": "💰 Cost: ${0}"
     }
 }

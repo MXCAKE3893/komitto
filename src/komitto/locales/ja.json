@@ -62,6 +62,9 @@
     "tui": {
         "regen_title": "🔄 追加の指示 (Enter:再生成 / Esc:キャンセル)",
         "regen_placeholder": "例: もっと短く、日本語で",
-        "regen_extra_header": "## 追加の指示"
+        "regen_extra_header": "## 追加の指示",
+        "cost_unknown": "💰 コスト: 不明",
+        "cost_small": "💰 コスト: ${0} (~{1}μ$)",
+        "cost_normal": "💰 コスト: ${0}"
     }
 }

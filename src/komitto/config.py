@@ -125,6 +125,11 @@ system = \"\"\"
 # # api_key = "sk-..." # Optional if environment variable is set / 省略時は環境変数を使用
 # # base_url = "http://localhost:11434/v1" # For Ollama etc. / Ollamaなどの場合
 # # history_limit = 5 # Number of past commits to include / プロンプトに含める過去のコミット数
+# 
+# # Cost settings (USD per 1M tokens) / コスト設定（100万トークンあたりのUSD）
+# # Example: gpt-4o-2024-08-06 (Input: $2.50, Output: $10.00)
+# # input_cost_per_million = 2.50
+# # output_cost_per_million = 10.00
 
 [git]
 # Files to exclude from the diff (glob patterns)
@@ -218,6 +223,11 @@ system = \"\"\"
 # # api_key = "sk-..." # Optional if environment variable is set / 省略時は環境変数を使用
 # # base_url = "http://localhost:11434/v1" # For Ollama etc. / Ollamaなどの場合
 # # history_limit = 5 # Number of past commits to include / プロンプトに含める過去のコミット数
+# 
+# # Cost settings (USD per 1M tokens) / コスト設定（100万トークンあたりのUSD）
+# # Example: gpt-4o-2024-08-06 (Input: $2.50, Output: $10.00)
+# # input_cost_per_million = 2.50
+# # output_cost_per_million = 10.00
 
 [git]
 # Files to exclude from the diff (glob patterns)
