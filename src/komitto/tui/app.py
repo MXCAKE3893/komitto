@@ -1,9 +1,10 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Static, Markdown, Label
+from textual.widgets import Footer, Static, Markdown, Label, Input, Button
 from textual.containers import Container, Vertical, Horizontal
 from textual.binding import Binding
 from textual import work
 from textual.reactive import reactive
+from textual.screen import ModalScreen
 import pyperclip
 
 from komitto.llm import create_llm_client
@@ -22,6 +23,28 @@ class CustomHeader(Static):
     def render(self) -> str:
         return f"🔧 {self.title}"
 
+
+class RegenerateModal(ModalScreen):
+    """追加指示を入力するモーダルダイアログ"""
+    
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+    
+    def compose(self) -> ComposeResult:
+        with Vertical(id="regen-modal"):
+            yield Label(t("tui.regen_title"), id="regen-title")
+            yield Input(placeholder=t("tui.regen_placeholder"), id="regen-input")
+    
+    def on_mount(self) -> None:
+        self.query_one("#regen-input", Input).focus()
+    
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(event.value.strip())
+    
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
 class KomittoApp(App):
     """A TUI for generating and reviewing commit messages."""
 
@@ -37,15 +60,12 @@ class KomittoApp(App):
         Binding("b", "select_b", "Select B", show=False),
     ]
 
-    # アプリケーションの状態
     STATE_GENERATING = "generating"
     STATE_REVIEW = "review"
-    STATE_COMPARE = "compare" # 比較選択待ち
+    STATE_COMPARE = "compare"
 
     current_state = reactive(STATE_GENERATING)
-    generated_text = reactive("") # シングルモード用、または選択後のテキスト
-    
-    # 比較モード用のリアクティブ変数
+    generated_text = reactive("")
     generated_text_a = reactive("")
     generated_text_b = reactive("")
 
@@ -60,14 +80,6 @@ class KomittoApp(App):
             self.name_a = self.compare_configs[0][0]
             self.config_b = self.compare_configs[1][1]
             self.name_b = self.compare_configs[1][0]
-            # プロンプトは共通と仮定（または呼び出し側で個別にビルドが必要だが、一旦共通の diff prompt を使う）
-            # ※ 本来は config ごとに system prompt が違うので、prompt も list で受け取るべきだが、
-            # main.py の構造上、prompt (final_text) は config に依存してビルドされている。
-            # 簡略化のため、このクラス内で prompt の再ビルドは行わず、渡された prompt を使う。
-            # ただし、厳密には compare モードの場合、main.py 側でそれぞれの system prompt を使って
-            # final_text を作っているはず。
-            # -> コンストラクタ引数を (prompt_a, config_a), (prompt_b, config_b) のリストにするのが正しい。
-            # 修正: compare_configs は [(name, config, prompt), ...] のリストとする。
         else:
             self.is_compare_mode = False
             self.config = config
@@ -128,23 +140,11 @@ class KomittoApp(App):
                 self.query_one("#status-label").add_class("status-generating")
             
         elif state == self.STATE_COMPARE:
-            pass  # Footer will display key bindings
+            pass
             
         elif state == self.STATE_REVIEW:
-            # 比較モードから遷移してきた場合、レイアウトを切り替える必要があるが
-            # Textual で動的にウィジェットを入れ替えるのは少し複雑。
-            # ここでは、選択されたテキストを generated_text にセットし、
-            # シンプルに「選択完了、あとはコミットするだけ」の状態にするか、
-            # あるいは比較画面のまま片方をハイライトするなどの表現が考えられる。
-            # 今回はシンプルに、選択されたテキストを表示するシングルビューに切り替える（再マウント）。
-            # ...というのは難しいので、初期 compose で条件分岐している。
-            # 一旦アプリを終了して、選択されたテキストで再度コミットフローに入る...のもUXが悪い。
-            # 
-            # 解決策: Containerの中身を消して、シングルビューをマウントし直す。
-            
             if self.is_compare_mode:
-                # 比較モードからの遷移時、UIをシングルモードに書き換える
-                self.is_compare_mode = False # フラグを倒す
+                self.is_compare_mode = False
                 container = self.query_one("#main-container")
                 container.remove_children()
                 container.mount(
@@ -155,7 +155,6 @@ class KomittoApp(App):
                     )
                 )
             
-            # シングルモードの場合の更新
             try:
                 status_label = self.query_one("#status-label")
                 status_label.update("✅ Review generated message")
@@ -190,7 +189,6 @@ class KomittoApp(App):
                 if usage:
                     usage_stats = usage
                 
-                # Update statistics
                 elapsed = time.time() - start_time
                 if elapsed > 0:
                     stats_text = ""
@@ -224,11 +222,9 @@ class KomittoApp(App):
         self.call_from_thread(setattr, self, "generated_text_a", "")
         self.call_from_thread(setattr, self, "generated_text_b", "")
 
-        # compare_configs structure: [(name, config, prompt), (name, config, prompt)]
         prompt_a = self.compare_configs[0][2]
         prompt_b = self.compare_configs[1][2]
 
-        # 並列実行用のヘルパー
         def run_gen(cfg, prompt, target_attr):
             try:
                 llm_config = cfg.get("llm", {})
@@ -255,7 +251,7 @@ class KomittoApp(App):
     def action_select_a(self) -> None:
         if self.current_state == self.STATE_COMPARE:
             self.generated_text = self.generated_text_a
-            self.config = self.config_a # 選択した設定を現在の設定にする（再生成時などに使用）
+            self.config = self.config_a
             self.prompt_text = self.compare_configs[0][2]
             self.current_state = self.STATE_REVIEW
 
@@ -270,15 +266,12 @@ class KomittoApp(App):
         if self.current_state != self.STATE_REVIEW:
             return
         
-        # Suspend the TUI to allow the subprocess (git commit) to access the terminal.
-        # This is critical for interactive operations like GPG passphrase prompts.
         with self.suspend():
             print(f"\n{t('main.action_commit_running')}")
             success = git_commit(self.generated_text)
             
         if success:
             self.notify(t('main.action_commit_success'), severity="information")
-            # Wait a moment for the user to see the success message
             import time
             time.sleep(1)
             self.exit()
@@ -289,7 +282,6 @@ class KomittoApp(App):
         if self.current_state != self.STATE_REVIEW:
             return
         
-        # suspend() must be called from the main thread
         with self.suspend():
             new_text = launch_editor(self.generated_text)
         
@@ -306,4 +298,12 @@ class KomittoApp(App):
     def action_regenerate(self) -> None:
         if self.current_state != self.STATE_REVIEW:
             return
-        self.generate_message()
+        
+        def handle_modal_result(result: str | None) -> None:
+            if result is None:
+                return
+            if result:
+                self.prompt_text = f"{self.prompt_text}\n\n---\n{t('tui.regen_extra_header')}\n{result}"
+            self.generate_message()
+        
+        self.push_screen(RegenerateModal(), handle_modal_result)

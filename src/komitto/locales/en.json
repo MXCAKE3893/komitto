@@ -58,5 +58,10 @@
         "auto_init_backup_created": "📦 Backup created: {0}",
         "auto_init_failed": "❌ Failed to create/update config file: {0}",
         "error": "Error during analysis: {0}"
+    },
+    "tui": {
+        "regen_title": "🔄 Extra instructions (Enter: Regenerate / Esc: Cancel)",
+        "regen_placeholder": "e.g. shorter, in Japanese",
+        "regen_extra_header": "## Extra Instructions"
     }
 }

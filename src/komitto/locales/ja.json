@@ -58,5 +58,10 @@
         "auto_init_backup_created": "📦 バックアップを作成しました: {0}",
         "auto_init_failed": "❌ 設定ファイルの作成/更新に失敗しました: {0}",
         "error": "分析中にエラーが発生しました: {0}"
+    },
+    "tui": {
+        "regen_title": "🔄 追加の指示 (Enter:再生成 / Esc:キャンセル)",
+        "regen_placeholder": "例: もっと短く、日本語で",
+        "regen_extra_header": "## 追加の指示"
     }
 }

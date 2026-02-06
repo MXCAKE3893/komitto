@@ -144,3 +144,33 @@ Footer {
     height: 1fr;
     overflow-y: auto;
 }
+
+/* ============================================
+   Regenerate Modal
+   ============================================ */
+RegenerateModal {
+    align: center middle;
+}
+
+#regen-modal {
+    width: 50;
+    height: auto;
+    background: #252526;
+    border: round #5c6370;
+    padding: 1 2;
+}
+
+#regen-title {
+    color: #abb2bf;
+    padding-bottom: 1;
+}
+
+#regen-input {
+    width: 100%;
+    border: round #5c6370;
+    background: #1e1e1e;
+}
+
+#regen-input:focus {
+    border: round #61afef;
+}
