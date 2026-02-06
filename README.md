@@ -1,6 +1,8 @@
 # komitto (commit)
 
-[English](./README.md) | [日本語](./README-ja.md)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/komitto?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BRIGHTGREEN&left_text=downloads)](https://pepy.tech/projects/komitto)
+
+[English](https://github.com/mxcake3893/komitto/blob/main/README.md) | [日本語](https://github.com/mxcake3893/komitto/blob/main/README-ja.md)
 
 A CLI tool for generating semantic commit message prompts from `git diff` information. The generated prompt is automatically copied to the clipboard, allowing you to paste it into an LLM to create your commit message.
 
@@ -189,4 +191,4 @@ base_url = "http://localhost:11434/v1"
 
 ## License
 
-MIT © 2024-2025
+MIT © 2025-2026

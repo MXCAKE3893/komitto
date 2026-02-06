@@ -1,6 +1,8 @@
 # komitto (commit)
 
-[English](./README.md) | [日本語](./README-ja.md)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/komitto?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BRIGHTGREEN&left_text=downloads)](https://pepy.tech/projects/komitto)
+
+[English](https://github.com/mxcake3893/komitto/blob/main/README.md) | [日本語](https://github.com/mxcake3893/komitto/blob/main/README-ja.md)
 
 `git diff` の情報からセマンティックなコミットメッセージのプロンプトを生成するCLIツールです。生成されたプロンプトは自動的にクリップボードにコピーされるため、LLM（大規模言語モデル）に貼り付けてコミットメッセージを作成できます。
 
@@ -192,4 +194,4 @@ base_url = "http://localhost:11434/v1"
 
 ## ライセンス
 
-MIT © 2024-2025
+MIT © 2025-2026
