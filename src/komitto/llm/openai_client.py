@@ -1,4 +1,5 @@
 import os
+from typing import Union
 from openai import OpenAI
 from .base import LLMClient
 
@@ -18,12 +19,12 @@ class OpenAIClient(LLMClient):
         )
         self.model = config.get("model", "gpt-4o")
 
-    def _prepare_messages(self, prompt: str | list):
+    def _prepare_messages(self, prompt: Union[str, list]):
         if isinstance(prompt, str):
             return [{"role": "user", "content": prompt}]
         return prompt
 
-    def generate_commit_message(self, prompt: str | list):
+    def generate_commit_message(self, prompt: Union[str, list]):
         messages = self._prepare_messages(prompt)
         response = self.client.chat.completions.create(
             model=self.model,
@@ -41,7 +42,7 @@ class OpenAIClient(LLMClient):
             
         return content, usage
 
-    def stream_commit_message(self, prompt: str | list):
+    def stream_commit_message(self, prompt: Union[str, list]):
         messages = self._prepare_messages(prompt)
         
         try:

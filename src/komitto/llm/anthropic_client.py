@@ -1,4 +1,5 @@
 import os
+from typing import Union
 import anthropic
 from .base import LLMClient
 
@@ -11,12 +12,12 @@ class AnthropicClient(LLMClient):
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = config.get("model", "claude-3-opus-20240229")
 
-    def _prepare_messages(self, prompt: str | list):
+    def _prepare_messages(self, prompt: Union[str, list]):
         if isinstance(prompt, str):
             return [{"role": "user", "content": prompt}]
         return prompt
 
-    def generate_commit_message(self, prompt: str | list):
+    def generate_commit_message(self, prompt: Union[str, list]):
         messages = self._prepare_messages(prompt)
         message = self.client.messages.create(
             model=self.model,
@@ -34,7 +35,7 @@ class AnthropicClient(LLMClient):
             
         return message.content[0].text.strip(), usage
 
-    def stream_commit_message(self, prompt: str | list):
+    def stream_commit_message(self, prompt: Union[str, list]):
         messages = self._prepare_messages(prompt)
         with self.client.messages.stream(
             max_tokens=1024,

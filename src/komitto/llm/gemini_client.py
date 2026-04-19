@@ -1,4 +1,5 @@
 import os
+from typing import Union
 from google import genai
 from .base import LLMClient
 
@@ -11,7 +12,7 @@ class GeminiClient(LLMClient):
         self.client = genai.Client(api_key=api_key)
         self.model_name = config.get("model", "gemini-pro")
 
-    def _prepare_messages(self, prompt: str | list):
+    def _prepare_messages(self, prompt: Union[str, list]):
         if isinstance(prompt, str):
             return prompt
         
@@ -21,7 +22,7 @@ class GeminiClient(LLMClient):
             contents.append({"role": role, "parts": [{"text": m["content"]}]})
         return contents
 
-    def generate_commit_message(self, prompt: str | list):
+    def generate_commit_message(self, prompt: Union[str, list]):
         contents = self._prepare_messages(prompt)
         response = self.client.models.generate_content(
             model=self.model_name,
@@ -38,7 +39,7 @@ class GeminiClient(LLMClient):
             
         return response.text.strip(), usage
 
-    def stream_commit_message(self, prompt: str | list):
+    def stream_commit_message(self, prompt: Union[str, list]):
         contents = self._prepare_messages(prompt)
         response = self.client.models.generate_content_stream(
             model=self.model_name,
