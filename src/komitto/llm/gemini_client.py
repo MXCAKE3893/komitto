@@ -11,10 +11,21 @@ class GeminiClient(LLMClient):
         self.client = genai.Client(api_key=api_key)
         self.model_name = config.get("model", "gemini-pro")
 
-    def generate_commit_message(self, prompt: str):
+    def _prepare_messages(self, prompt: str | list):
+        if isinstance(prompt, str):
+            return prompt
+        
+        contents = []
+        for m in prompt:
+            role = "model" if m["role"] == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": m["content"]}]})
+        return contents
+
+    def generate_commit_message(self, prompt: str | list):
+        contents = self._prepare_messages(prompt)
         response = self.client.models.generate_content(
             model=self.model_name,
-            contents=prompt
+            contents=contents
         )
         
         usage = None
@@ -27,10 +38,11 @@ class GeminiClient(LLMClient):
             
         return response.text.strip(), usage
 
-    def stream_commit_message(self, prompt: str):
+    def stream_commit_message(self, prompt: str | list):
+        contents = self._prepare_messages(prompt)
         response = self.client.models.generate_content_stream(
             model=self.model_name,
-            contents=prompt
+            contents=contents
         )
         
         for chunk in response:

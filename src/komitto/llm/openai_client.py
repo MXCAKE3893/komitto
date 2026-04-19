@@ -18,12 +18,16 @@ class OpenAIClient(LLMClient):
         )
         self.model = config.get("model", "gpt-4o")
 
-    def generate_commit_message(self, prompt: str):
+    def _prepare_messages(self, prompt: str | list):
+        if isinstance(prompt, str):
+            return [{"role": "user", "content": prompt}]
+        return prompt
+
+    def generate_commit_message(self, prompt: str | list):
+        messages = self._prepare_messages(prompt)
         response = self.client.chat.completions.create(
             model=self.model,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+            messages=messages
         )
         content = response.choices[0].message.content.strip()
         
@@ -37,11 +41,13 @@ class OpenAIClient(LLMClient):
             
         return content, usage
 
-    def stream_commit_message(self, prompt: str):
+    def stream_commit_message(self, prompt: str | list):
+        messages = self._prepare_messages(prompt)
+        
         try:
             stream = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 stream=True,
                 stream_options={"include_usage": True}
             )
@@ -49,7 +55,7 @@ class OpenAIClient(LLMClient):
             # Fallback for older SDKs or backends that don't support stream_options
             stream = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 stream=True
             )
 

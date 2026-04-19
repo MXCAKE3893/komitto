@@ -81,9 +81,11 @@ class KomittoApp(App):
             self.name_a = self.compare_configs[0][0]
             self.config_b = self.compare_configs[1][1]
             self.name_b = self.compare_configs[1][0]
+            self.messages_history = []
         else:
             self.is_compare_mode = False
             self.config = config
+            self.messages_history = [{"role": "user", "content": self.prompt_text}]
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -180,9 +182,9 @@ class KomittoApp(App):
             full_text = ""
             usage_stats = None
             start_time = time.time()
-            input_chars = len(self.prompt_text)
+            input_chars = sum(len(m["content"]) for m in self.messages_history)
             
-            for chunk, usage in client.stream_commit_message(self.prompt_text):
+            for chunk, usage in client.stream_commit_message(self.messages_history):
                 if chunk:
                     full_text += chunk
                     self.call_from_thread(setattr, self, "generated_text", full_text)
@@ -217,6 +219,10 @@ class KomittoApp(App):
                         pass
             
             self.call_from_thread(setattr, self, "current_state", self.STATE_REVIEW)
+            
+            # Add assistant response to history
+            if full_text:
+                self.messages_history.append({"role": "assistant", "content": full_text})
             
         except Exception as e:
             self.call_from_thread(self.notify, f"Error: {e}", severity="error")
@@ -260,6 +266,10 @@ class KomittoApp(App):
             self.generated_text = self.generated_text_a
             self.config = self.config_a
             self.prompt_text = self.compare_configs[0][2]
+            self.messages_history = [
+                {"role": "user", "content": self.prompt_text},
+                {"role": "assistant", "content": self.generated_text_a}
+            ]
             self.current_state = self.STATE_REVIEW
 
     def action_select_b(self) -> None:
@@ -267,6 +277,10 @@ class KomittoApp(App):
             self.generated_text = self.generated_text_b
             self.config = self.config_b
             self.prompt_text = self.compare_configs[1][2]
+            self.messages_history = [
+                {"role": "user", "content": self.prompt_text},
+                {"role": "assistant", "content": self.generated_text_b}
+            ]
             self.current_state = self.STATE_REVIEW
 
     def action_commit(self) -> None:
@@ -310,7 +324,9 @@ class KomittoApp(App):
             if result is None:
                 return
             if result:
-                self.prompt_text = f"{self.prompt_text}\n\n---\n{t('tui.regen_extra_header')}\n{result}"
+                self.messages_history.append({"role": "user", "content": result})
+            elif self.messages_history and self.messages_history[-1]["role"] == "assistant":
+                self.messages_history.pop()
             self.generate_message()
         
         self.push_screen(RegenerateModal(), handle_modal_result)
