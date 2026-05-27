@@ -10,7 +10,7 @@ class GeminiClient(LLMClient):
             raise ValueError("Gemini API key is missing. Set it in komitto.toml or environment variable 'GEMINI_API_KEY'.")
         
         self.client = genai.Client(api_key=api_key)
-        self.model_name = config.get("model", "gemini-pro")
+        self.model_name = config.get("model", "gemini-3.5-flash")
 
     def _prepare_messages(self, prompt: Union[str, list]):
         if isinstance(prompt, str):

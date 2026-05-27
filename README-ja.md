@@ -153,7 +153,7 @@ system = """
 
 [llm]
 provider = "openai"
-model = "gpt-4o"
+model = "gpt-5.4-mini"
 api_key = "${OPENAI_API_KEY}"
 base_url = "https://api.openai.com/v1"
 

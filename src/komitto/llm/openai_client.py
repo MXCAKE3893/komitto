@@ -17,7 +17,7 @@ class OpenAIClient(LLMClient):
             api_key=api_key or "dummy", # Some local servers need a dummy key
             base_url=base_url
         )
-        self.model = config.get("model", "gpt-4o")
+        self.model = config.get("model", "gpt-5.4-mini")
 
     def _prepare_messages(self, prompt: Union[str, list]):
         if isinstance(prompt, str):
