@@ -1,5 +1,5 @@
 import pytest
-from komitto.prompt import parse_diff_to_xml, build_prompt
+from komitto.prompt import parse_diff_to_xml, build_prompt, clean_markdown_code_block
 from komitto.i18n import set_language
 
 @pytest.fixture(autouse=True)
@@ -116,6 +116,19 @@ def test_build_prompt_full_parameters():
     assert "<changeset>" in prompt
     assert '<file path="a.txt">' in prompt
 
+def test_build_prompt_with_reference_content():
+    """reference_contentが渡された場合、対応する見出しセクションが追加されることをテスト"""
+    system_prompt = "System prompt"
+    diff_content = "diff --git a.txt a.txt\n@@ -1 +1 @@\n+change"
+    reference_content = "### ref.txt\n\nref_content_here"
+    
+    prompt = build_prompt(system_prompt, None, "", diff_content, reference_content)
+    
+    assert system_prompt in prompt
+    assert "<changeset>" in prompt
+    assert "### ref.txt" in prompt
+    assert "ref_content_here" in prompt
+
 def test_build_prompt_missing_optional_parameters():
     """optional なパラメータ（logs や context）が None や空の場合、対応する見出しセクションが除外されることをテスト"""
     system_prompt = "System prompt"
@@ -130,3 +143,61 @@ def test_build_prompt_missing_optional_parameters():
     # logs と context の見出しが含まれていないこと
     assert "Recent Commits" not in prompt
     assert "User Context" not in prompt
+
+def test_clean_markdown_code_block_simple():
+    """言語指定のない単純なマークダウンのコードブロックが除去されること"""
+    text = "```\nfeat: my commit\n```"
+    assert clean_markdown_code_block(text) == "feat: my commit"
+
+def test_clean_markdown_code_block_with_language():
+    """markdown や text などの言語指定があるコードブロックが除去されること"""
+    text1 = "```markdown\nfeat: my commit\n```"
+    assert clean_markdown_code_block(text1) == "feat: my commit"
+    
+    text2 = "```text\nfix: my fix\n```"
+    assert clean_markdown_code_block(text2) == "fix: my fix"
+
+def test_clean_markdown_code_block_with_middle_code_block():
+    """文頭や文末ではなく、文中にのみコードブロックが存在する場合（全体が囲まれていない場合）、誤って抽出されずに元のテキスト全体が保持されること"""
+    text = """feat: add formatting feature
+
+Here is an example:
+```python
+print("Hello")
+```
+Hope this helps!"""
+    assert clean_markdown_code_block(text) == text
+
+def test_clean_markdown_code_block_with_internal_code_blocks():
+    """コミットメッセージ自体の中にコードブロックが含まれている場合、一番外側のコードブロックのみが除去され、内部のものは破壊されないこと（最長一致のテスト）"""
+    text = """```markdown
+feat: support formatting
+
+Now you can use markdown inside commits!
+```python
+print("Hello")
+```
+It works perfectly!
+```"""
+    expected = """feat: support formatting
+
+Now you can use markdown inside commits!
+```python
+print("Hello")
+```
+It works perfectly!"""
+    assert clean_markdown_code_block(text) == expected
+
+def test_clean_markdown_code_block_no_code_block():
+    """コードブロックが含まれていない場合は、元のテキスト（前後の空白は除去）がそのまま返されること"""
+    text = "feat: this is just a normal commit message"
+    assert clean_markdown_code_block(text) == text
+    
+    text_with_spaces = "  \n  feat: padded \n "
+    assert clean_markdown_code_block(text_with_spaces) == "feat: padded"
+
+def test_clean_markdown_code_block_empty():
+    """空文字や None の場合はそのまま返されること"""
+    assert clean_markdown_code_block("") == ""
+    assert clean_markdown_code_block(None) is None
+

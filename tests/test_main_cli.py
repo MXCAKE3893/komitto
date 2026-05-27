@@ -3,7 +3,7 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-from komitto.main import get_key, generate_and_review, main
+from komitto.main import get_key, generate_and_review, main, load_reference_files
 
 def test_get_key_windows():
     """Windows環境で msvcrt が使われ、キーが正常にデコードされて返されることをテスト"""
@@ -154,6 +154,49 @@ def test_generate_and_review_interactive_flow_cancel(mock_exit, mock_get_key, mo
             with pytest.raises(SystemExit):
                 generate_and_review(config, args, "sys_prompt", "final_prompt")
             mock_exit.assert_called_once_with(0)
+
+# ==============================================================================
+# load_reference_files() テスト
+# ==============================================================================
+
+def test_load_reference_files_empty():
+    """ファイルリストが空またはNoneの場合に None を返すことをテスト"""
+    assert load_reference_files([]) is None
+    assert load_reference_files(None) is None
+
+def test_load_reference_files_success(tmp_path, monkeypatch):
+    """存在するファイルが指定された場合にその内容が結合されて返されることをテスト"""
+    monkeypatch.setattr("pathlib.Path.cwd", lambda: tmp_path)
+    
+    test_file = tmp_path / "test.md"
+    test_file.write_text("mock content", encoding="utf-8")
+    
+    result = load_reference_files(["test.md"])
+    assert result is not None
+    assert "### test.md" in result
+    assert "mock content" in result
+
+@patch("komitto.main.console.print")
+def test_load_reference_files_not_found(mock_print, tmp_path, monkeypatch):
+    """ファイルが存在しない場合に警告が出力され、スキップされることをテスト"""
+    monkeypatch.setattr("pathlib.Path.cwd", lambda: tmp_path)
+    
+    result = load_reference_files(["not_exist.md"])
+    assert result is None
+    mock_print.assert_called_once()
+
+@patch("komitto.main.console.print")
+def test_load_reference_files_read_error(mock_print, tmp_path, monkeypatch):
+    """ファイル読み込み時にエラーが発生した場合に警告が出力されることをテスト"""
+    monkeypatch.setattr("pathlib.Path.cwd", lambda: tmp_path)
+    
+    test_file = tmp_path / "error.md"
+    # ディレクトリを作成してファイルと同じ名前にすることで読み込みエラーを発生させる
+    test_file.mkdir()
+    
+    result = load_reference_files(["error.md"])
+    assert result is None
+    mock_print.assert_called_once()
 
 # ==============================================================================
 # main() 結合/引数分岐テスト
