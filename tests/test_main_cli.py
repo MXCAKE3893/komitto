@@ -155,6 +155,48 @@ def test_generate_and_review_interactive_flow_cancel(mock_exit, mock_get_key, mo
                 generate_and_review(config, args, "sys_prompt", "final_prompt")
             mock_exit.assert_called_once_with(0)
 
+@patch("komitto.main.create_llm_client")
+@patch("komitto.main.get_key")
+@patch("komitto.main.git_commit")
+@patch("komitto.main.Live")
+def test_generate_and_review_reasoning_display(mock_live_class, mock_git_commit, mock_get_key, mock_create_client):
+    """思考フェーズ中に Live パネルが '💭 Thinking...' になることと計算ロジックをテスト"""
+    mock_client = MagicMock()
+    mock_client.stream_commit_message.return_value = [
+        (None, "Thinking 1\n", None),
+        (None, "Thinking 2\n", None),
+        ("Draft ", None, None),
+        ("message", None, {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7})
+    ]
+    mock_create_client.return_value = mock_client
+    
+    mock_get_key.return_value = "y"
+    mock_git_commit.return_value = True
+    
+    mock_live_instance = MagicMock()
+    mock_live_class.return_value.__enter__.return_value = mock_live_instance
+    
+    config = {"llm": {"provider": "openai"}}
+    args = MagicMock()
+    args.interactive = True
+    args.compare = False
+    
+    with patch("builtins.print"), patch("sys.stdout.flush"), patch("komitto.main.pyperclip.copy"), patch("komitto.main.console.clear"):
+        result = generate_and_review(config, args, "sys_prompt", "final_prompt", title_suffix="Test")
+        
+        assert result == "Draft message"
+        
+        update_calls = mock_live_instance.update.call_args_list
+        assert len(update_calls) == 4
+        
+        # 1回目の更新は Thinking
+        panel_1 = update_calls[0][0][0]
+        assert "💭 Thinking..." in panel_1.title
+        
+        # 3回目の更新は Generating に切り替わっている
+        panel_3 = update_calls[2][0][0]
+        assert "Generating Test..." in panel_3.title
+
 # ==============================================================================
 # load_reference_files() テスト
 # ==============================================================================

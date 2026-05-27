@@ -7,6 +7,21 @@ from komitto.llm.anthropic_client import AnthropicClient
 
 class TestLLMClients(unittest.IsolatedAsyncioTestCase):
 
+    def test_base_llm_client(self):
+        from komitto.llm.base import LLMClient
+        class DummyClient(LLMClient):
+            def generate_commit_message(self, prompt):
+                return "Base message", {"total_tokens": 10}
+            async def stream_commit_message_async(self, prompt):
+                pass
+            async def aclose(self):
+                pass
+        
+        client = DummyClient()
+        chunks = list(client.stream_commit_message("prompt"))
+        self.assertEqual(len(chunks), 1)
+        self.assertEqual(chunks[0], ("Base message", None, {"total_tokens": 10}))
+
     @patch('komitto.llm.openai_client.OpenAI')
     def test_openai_client_generate(self, mock_openai):
         # Setup mock
@@ -41,21 +56,34 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         mock_openai.return_value = mock_instance
         
         # Mock streaming chunks
+        chunk0 = MagicMock()
+        chunk0.choices = [MagicMock(delta=MagicMock(content=None, reasoning_content="Think "))]
+        chunk0.usage = None
+        
         chunk1 = MagicMock()
         chunk1.choices = [MagicMock(delta=MagicMock(content="Hello ", reasoning_content=None))]
         chunk1.usage = None
         
-        chunk2 = MagicMock()
-        chunk2.choices = [MagicMock(delta=MagicMock(content="World", reasoning_content=None))]
+        chunk2 = MagicMock() # Empty choices
+        chunk2.choices = []
         chunk2.usage = None
         
+        class DummyDelta:
+            def __init__(self):
+                self.content = "World"
+                # no reasoning_content attribute
+                
         chunk3 = MagicMock()
-        chunk3.choices = []
-        chunk3.usage.prompt_tokens = 5
-        chunk3.usage.completion_tokens = 2
-        chunk3.usage.total_tokens = 7
+        chunk3.choices = [MagicMock(delta=DummyDelta())]
+        chunk3.usage = None
         
-        mock_instance.chat.completions.create.return_value = iter([chunk1, chunk2, chunk3])
+        chunk4 = MagicMock()
+        chunk4.choices = []
+        chunk4.usage.prompt_tokens = 5
+        chunk4.usage.completion_tokens = 2
+        chunk4.usage.total_tokens = 7
+        
+        mock_instance.chat.completions.create.return_value = iter([chunk0, chunk1, chunk2, chunk3, chunk4])
 
         # Test
         config = {"api_key": "test_key", "model": "gpt-4"}
@@ -64,18 +92,22 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         chunks = list(client.stream_commit_message("prompt"))
         
         # Assertions
-        # Chunk 1
-        self.assertEqual(chunks[0][0], "Hello ")
-        self.assertIsNone(chunks[0][1])
+        # Chunk 0
+        self.assertIsNone(chunks[0][0])
+        self.assertEqual(chunks[0][1], "Think ")
         
-        # Chunk 2
-        self.assertEqual(chunks[1][0], "World")
+        # Chunk 1
+        self.assertEqual(chunks[1][0], "Hello ")
         self.assertIsNone(chunks[1][1])
         
-        # Chunk 3 (Usage only)
-        # Chunk 3 (Usage only)
-        self.assertEqual(chunks[2][0], "")
-        self.assertEqual(chunks[2][2], {
+        # Chunk 3 (World) - Chunk 2 is skipped because empty
+        self.assertEqual(chunks[2][0], "World")
+        self.assertIsNone(chunks[2][1])
+        
+        # Chunk 4 (Usage only)
+        self.assertEqual(chunks[3][0], "")
+        self.assertIsNone(chunks[3][1])
+        self.assertEqual(chunks[3][2], {
             "prompt_tokens": 5,
             "completion_tokens": 2,
             "total_tokens": 7
@@ -212,7 +244,9 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
             model="gemini-3.5-flash", contents="prompt"
         )
         self.assertEqual(chunks[0][0], "Commit ")
+        self.assertIsNone(chunks[0][1])
         self.assertEqual(chunks[1][0], "message")
+        self.assertIsNone(chunks[1][1])
         self.assertEqual(chunks[1][2]["total_tokens"], 12)
 
     @patch('komitto.llm.gemini_client.genai')
@@ -251,7 +285,9 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
             model="gemini-3.5-flash", contents="prompt"
         )
         self.assertEqual(chunks[0][0], "Async ")
+        self.assertIsNone(chunks[0][1])
         self.assertEqual(chunks[1][0], "message")
+        self.assertIsNone(chunks[1][1])
         self.assertEqual(chunks[1][2]["total_tokens"], 12)
 
     @patch('komitto.llm.gemini_client.genai')
@@ -373,7 +409,9 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
             chunks.append(chunk)
 
         self.assertEqual(chunks[0][0], "Async ")
+        self.assertIsNone(chunks[0][1])
         self.assertEqual(chunks[1][0], "Anthropic")
+        self.assertIsNone(chunks[1][1])
         self.assertEqual(chunks[2][0], "")
         self.assertEqual(chunks[2][2], {
             "prompt_tokens": 5,

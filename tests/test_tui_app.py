@@ -20,11 +20,17 @@ def mock_llm_client():
     mock_client = MagicMock()
     # stream_commit_message_async は (chunk, reasoning_chunk, usage) の3要素をyieldする
     async def mock_stream_async(*args, **kwargs):
-        yield "Mocked commit message", None, None
+        yield None, "Thinking line 1\n", None
+        yield None, "Thinking line 2", None
+        yield "Mocked ", None, None
+        yield "commit message", None, None
     mock_client.stream_commit_message_async.side_effect = mock_stream_async
     
     def mock_stream(*args, **kwargs):
-        yield "Mocked commit message", None, None
+        yield None, "Thinking line 1\n", None
+        yield None, "Thinking line 2", None
+        yield "Mocked ", None, None
+        yield "commit message", None, None
     mock_client.stream_commit_message.side_effect = mock_stream
     
     # aclose も AsyncMock 化
@@ -53,6 +59,13 @@ async def test_komitto_app_run_single(mock_llm_client):
     app = KomittoApp(config=config, prompt="test prompt")
     app.suspend = dummy_suspend  # suspend のモック化
     
+    orig_reasoning = app._show_reasoning_phase
+    orig_content = app._show_content_phase
+    mock_reasoning = MagicMock(side_effect=orig_reasoning)
+    mock_content = MagicMock(side_effect=orig_content)
+    app._show_reasoning_phase = mock_reasoning
+    app._show_content_phase = mock_content
+    
     async with app.run_test() as pilot:
         # バックグラウンドの `@work` タスクが完了するのを待つ
         await app.workers.wait_for_complete()
@@ -61,6 +74,8 @@ async def test_komitto_app_run_single(mock_llm_client):
         assert app.current_state == "review"
         assert app.generated_text == "Mocked commit message"
         mock_llm_client.aclose.assert_called_once()
+        mock_reasoning.assert_called()
+        mock_content.assert_called()
 
 @pytest.mark.anyio
 async def test_komitto_app_cancellation(mock_llm_client):
@@ -150,6 +165,7 @@ async def test_komitto_app_run_compare():
     
     mock_client_a = MagicMock()
     async def mock_stream_a(*args, **kwargs):
+        yield None, "Reasoning A\n", None
         yield "Msg A from OpenAI", None, None
     mock_client_a.stream_commit_message_async.side_effect = mock_stream_a
     from unittest.mock import AsyncMock
@@ -157,6 +173,7 @@ async def test_komitto_app_run_compare():
 
     mock_client_b = MagicMock()
     async def mock_stream_b(*args, **kwargs):
+        yield None, "Reasoning B\n", None
         yield "Msg B from Gemini", None, None
     mock_client_b.stream_commit_message_async.side_effect = mock_stream_b
     mock_client_b.aclose = AsyncMock()
