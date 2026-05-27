@@ -1,11 +1,11 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 
 from komitto.llm.openai_client import OpenAIClient
 from komitto.llm.gemini_client import GeminiClient
 from komitto.llm.anthropic_client import AnthropicClient
 
-class TestLLMClients(unittest.TestCase):
+class TestLLMClients(unittest.IsolatedAsyncioTestCase):
 
     @patch('komitto.llm.openai_client.OpenAI')
     def test_openai_client_generate(self, mock_openai):
@@ -42,11 +42,11 @@ class TestLLMClients(unittest.TestCase):
         
         # Mock streaming chunks
         chunk1 = MagicMock()
-        chunk1.choices = [MagicMock(delta=MagicMock(content="Hello "))]
+        chunk1.choices = [MagicMock(delta=MagicMock(content="Hello ", reasoning_content=None))]
         chunk1.usage = None
         
         chunk2 = MagicMock()
-        chunk2.choices = [MagicMock(delta=MagicMock(content="World"))]
+        chunk2.choices = [MagicMock(delta=MagicMock(content="World", reasoning_content=None))]
         chunk2.usage = None
         
         chunk3 = MagicMock()
@@ -73,12 +73,83 @@ class TestLLMClients(unittest.TestCase):
         self.assertIsNone(chunks[1][1])
         
         # Chunk 3 (Usage only)
+        # Chunk 3 (Usage only)
         self.assertEqual(chunks[2][0], "")
-        self.assertEqual(chunks[2][1], {
+        self.assertEqual(chunks[2][2], {
             "prompt_tokens": 5,
             "completion_tokens": 2,
             "total_tokens": 7
         })
+
+    @patch('komitto.llm.openai_client.OpenAI')
+    @patch('komitto.llm.openai_client.AsyncOpenAI')
+    async def test_openai_client_stream_async(self, mock_async_openai, mock_openai):
+        mock_instance = MagicMock()
+        mock_async_openai.return_value = mock_instance
+        
+        # Mock streaming chunks
+        chunk1 = MagicMock()
+        chunk1.choices = [MagicMock(delta=MagicMock(content="Async ", reasoning_content="Reason1"))]
+        chunk1.usage = None
+        
+        chunk2 = MagicMock()
+        chunk2.choices = [MagicMock(delta=MagicMock(content="World", reasoning_content=None))]
+        chunk2.usage = None
+        
+        chunk3 = MagicMock()
+        chunk3.choices = []
+        chunk3.usage.prompt_tokens = 5
+        chunk3.usage.completion_tokens = 2
+        chunk3.usage.total_tokens = 7
+        
+        async def mock_stream():
+            for c in [chunk1, chunk2, chunk3]:
+                yield c
+                
+        import asyncio
+        future = asyncio.Future()
+        future.set_result(mock_stream())
+        mock_instance.chat.completions.create.return_value = future
+
+        config = {"api_key": "test_key", "model": "gpt-4"}
+        client = OpenAIClient(config)
+        
+        chunks = []
+        async for chunk in client.stream_commit_message_async("prompt"):
+            chunks.append(chunk)
+            
+        self.assertEqual(chunks[0][0], "Async ")
+        self.assertEqual(chunks[0][1], "Reason1")
+        self.assertIsNone(chunks[0][2])
+        
+        self.assertEqual(chunks[1][0], "World")
+        self.assertIsNone(chunks[1][1])
+        self.assertIsNone(chunks[1][2])
+        
+        self.assertEqual(chunks[2][0], "")
+        self.assertIsNone(chunks[2][1])
+        self.assertEqual(chunks[2][2], {
+            "prompt_tokens": 5,
+            "completion_tokens": 2,
+            "total_tokens": 7
+        })
+
+    @patch('komitto.llm.openai_client.OpenAI')
+    @patch('komitto.llm.openai_client.AsyncOpenAI')
+    async def test_openai_client_aclose(self, mock_async_openai, mock_openai):
+        mock_instance = MagicMock()
+        mock_async_openai.return_value = mock_instance
+        
+        # async close mock
+        import asyncio
+        future = asyncio.Future()
+        future.set_result(None)
+        mock_instance.close.return_value = future
+        
+        config = {"api_key": "test"}
+        client = OpenAIClient(config)
+        await client.aclose()
+        mock_instance.close.assert_called_once()
 
     @patch('komitto.llm.gemini_client.genai')
     def test_gemini_client_generate(self, mock_genai):
@@ -142,7 +213,61 @@ class TestLLMClients(unittest.TestCase):
         )
         self.assertEqual(chunks[0][0], "Commit ")
         self.assertEqual(chunks[1][0], "message")
-        self.assertEqual(chunks[1][1]["total_tokens"], 12)
+        self.assertEqual(chunks[1][2]["total_tokens"], 12)
+
+    @patch('komitto.llm.gemini_client.genai')
+    async def test_gemini_client_stream_async(self, mock_genai):
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+        
+        chunk1 = MagicMock()
+        chunk1.text = "Async "
+        chunk1.usage_metadata.prompt_token_count = 10
+        chunk1.usage_metadata.candidates_token_count = 1
+        chunk1.usage_metadata.total_token_count = 11
+        
+        chunk2 = MagicMock()
+        chunk2.text = "message"
+        chunk2.usage_metadata.prompt_token_count = 10
+        chunk2.usage_metadata.candidates_token_count = 2
+        chunk2.usage_metadata.total_token_count = 12
+        
+        async def mock_stream():
+            for c in [chunk1, chunk2]:
+                yield c
+                
+        import asyncio
+        future = asyncio.Future()
+        future.set_result(mock_stream())
+        mock_client.aio.models.generate_content_stream.return_value = future
+
+        config = {"api_key": "test_key", "model": "gemini-3.5-flash"}
+        client = GeminiClient(config)
+        chunks = []
+        async for chunk in client.stream_commit_message_async("prompt"):
+            chunks.append(chunk)
+            
+        mock_client.aio.models.generate_content_stream.assert_called_with(
+            model="gemini-3.5-flash", contents="prompt"
+        )
+        self.assertEqual(chunks[0][0], "Async ")
+        self.assertEqual(chunks[1][0], "message")
+        self.assertEqual(chunks[1][2]["total_tokens"], 12)
+
+    @patch('komitto.llm.gemini_client.genai')
+    async def test_gemini_client_aclose(self, mock_genai):
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+        
+        import asyncio
+        future = asyncio.Future()
+        future.set_result(None)
+        mock_client.aio.close.return_value = future
+        
+        config = {"api_key": "test"}
+        client = GeminiClient(config)
+        await client.aclose()
+        mock_client.aio.close.assert_called_once()
 
     @patch('komitto.llm.anthropic_client.anthropic.Anthropic')
     def test_anthropic_client_generate(self, mock_anthropic):
@@ -216,6 +341,58 @@ class TestLLMClients(unittest.TestCase):
         with self.assertRaises(Exception) as ctx:
             client.generate_commit_message("prompt")
         self.assertEqual(str(ctx.exception), "API connection timeout")
+
+    @patch('komitto.llm.anthropic_client.anthropic.Anthropic')
+    @patch('komitto.llm.anthropic_client.anthropic.AsyncAnthropic')
+    async def test_anthropic_client_stream_async(self, mock_async_anthropic, mock_anthropic):
+        mock_instance = MagicMock()
+        mock_async_anthropic.return_value = mock_instance
+        
+        mock_stream_ctx = AsyncMock()
+        mock_instance.messages.stream.return_value = mock_stream_ctx
+        
+        chunk1 = "Async "
+        chunk2 = "Anthropic"
+        
+        async def mock_text_stream():
+            for c in [chunk1, chunk2]:
+                yield c
+                
+        mock_stream_ctx.__aenter__.return_value.text_stream = mock_text_stream()
+        
+        mock_final_msg = MagicMock()
+        mock_final_msg.usage.input_tokens = 5
+        mock_final_msg.usage.output_tokens = 2
+        
+        mock_stream_ctx.__aenter__.return_value.get_final_message.return_value = mock_final_msg
+
+        config = {"api_key": "test_key", "model": "claude-3"}
+        client = AnthropicClient(config)
+        chunks = []
+        async for chunk in client.stream_commit_message_async("prompt"):
+            chunks.append(chunk)
+
+        self.assertEqual(chunks[0][0], "Async ")
+        self.assertEqual(chunks[1][0], "Anthropic")
+        self.assertEqual(chunks[2][0], "")
+        self.assertEqual(chunks[2][2], {
+            "prompt_tokens": 5,
+            "completion_tokens": 2,
+            "total_tokens": 7
+        })
+
+    @patch('komitto.llm.anthropic_client.anthropic.Anthropic')
+    @patch('komitto.llm.anthropic_client.anthropic.AsyncAnthropic')
+    async def test_anthropic_client_aclose(self, mock_async_anthropic, mock_anthropic):
+        mock_instance = MagicMock()
+        mock_async_anthropic.return_value = mock_instance
+        
+        mock_instance.close = AsyncMock()
+        
+        config = {"api_key": "test_key"}
+        client = AnthropicClient(config)
+        await client.aclose()
+        mock_instance.close.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()

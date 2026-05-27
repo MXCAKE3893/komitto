@@ -5,6 +5,7 @@ from textual.binding import Binding
 from textual import work
 from textual.reactive import reactive
 from textual.screen import ModalScreen
+import asyncio
 import pyperclip
 
 from komitto.llm import create_llm_client
@@ -224,20 +225,20 @@ class KomittoApp(App):
                 status_label.add_class("status-ready")
             except: pass
 
-    @work(exclusive=True, thread=True)
-    def generate_message(self) -> None:
+    @work(exclusive=True)
+    async def generate_message(self) -> None:
         """Generate commit message in background (Single mode)."""
         import time
-        self.call_from_thread(setattr, self, "current_state", self.STATE_GENERATING)
-        self.call_from_thread(setattr, self, "generated_text", "")
+        self.current_state = self.STATE_GENERATING
+        self.generated_text = ""
 
         llm_config = self.config.get("llm", {})
         if not llm_config or not llm_config.get("provider"):
-            self.call_from_thread(self.notify, "No LLM provider configured.", severity="error")
+            self.notify("No LLM provider configured.", severity="error")
             return
 
+        client = create_llm_client(llm_config)
         try:
-            client = create_llm_client(llm_config)
             full_text = ""
             reasoning_full_text = ""
             is_reasoning_phase = True
@@ -246,12 +247,9 @@ class KomittoApp(App):
             input_chars = sum(len(m["content"]) for m in self.messages_history)
             
             # Show reasoning-view, hide markdown-view initially
-            try:
-                self.call_from_thread(self._show_reasoning_phase)
-            except:
-                pass
+            self._show_reasoning_phase()
             
-            for chunk, reasoning_chunk, usage in client.stream_commit_message(self.messages_history):
+            async for chunk, reasoning_chunk, usage in client.stream_commit_message_async(self.messages_history):
                 if reasoning_chunk:
                     reasoning_full_text += reasoning_chunk
                 
@@ -260,10 +258,7 @@ class KomittoApp(App):
                     # First content chunk: transition from reasoning to main text
                     if is_reasoning_phase:
                         is_reasoning_phase = False
-                        try:
-                            self.call_from_thread(self._show_content_phase)
-                        except:
-                            pass
+                        self._show_content_phase()
                 
                 # Update the appropriate view
                 if is_reasoning_phase and reasoning_full_text:
@@ -271,11 +266,11 @@ class KomittoApp(App):
                         reasoning_view = self.query_one("#reasoning-view")
                         lines = reasoning_full_text.strip().split('\n')
                         display_lines = '\n'.join(lines[-3:])
-                        self.call_from_thread(reasoning_view.update, display_lines)
+                        reasoning_view.update(display_lines)
                     except:
                         pass
                 elif full_text:
-                    self.call_from_thread(setattr, self, "generated_text", full_text)
+                    self.generated_text = full_text
                 
                 if usage:
                     usage_stats = usage
@@ -304,65 +299,68 @@ class KomittoApp(App):
                     
                     try:
                         stats_label = self.query_one("#stats-label")
-                        self.call_from_thread(stats_label.update, stats_text)
+                        stats_label.update(stats_text)
                     except:
                         pass
             
             # Ensure we're in content phase for review
             if is_reasoning_phase:
-                try:
-                    self.call_from_thread(self._show_content_phase)
-                except:
-                    pass
+                self._show_content_phase()
             
-            self.call_from_thread(setattr, self, "current_state", self.STATE_REVIEW)
+            self.current_state = self.STATE_REVIEW
             
             # Add assistant response to history
             if full_text:
                 full_text = clean_markdown_code_block(full_text)
-                self.call_from_thread(setattr, self, "generated_text", full_text)
+                self.generated_text = full_text
                 self.messages_history.append({"role": "assistant", "content": full_text})
             
+        except asyncio.CancelledError:
+            self.notify("Generation canceled", severity="warning")
+            raise
         except Exception as e:
-            self.call_from_thread(self.notify, f"Error: {e}", severity="error")
-            self.call_from_thread(setattr, self, "current_state", self.STATE_REVIEW)
+            self.notify(f"Error: {e}", severity="error")
+            self.current_state = self.STATE_REVIEW
+        finally:
+            await client.aclose()
 
-    @work(exclusive=True, thread=True)
-    def generate_compare(self) -> None:
+    @work(exclusive=True)
+    async def generate_compare(self) -> None:
         """Generate two messages in parallel."""
-        self.call_from_thread(setattr, self, "current_state", self.STATE_GENERATING)
-        self.call_from_thread(setattr, self, "generated_text_a", "")
-        self.call_from_thread(setattr, self, "generated_text_b", "")
+        self.current_state = self.STATE_GENERATING
+        self.generated_text_a = ""
+        self.generated_text_b = ""
 
         prompt_a = self.compare_configs[0][2]
         prompt_b = self.compare_configs[1][2]
 
-        def run_gen(cfg, prompt, target_attr):
+        await asyncio.gather(
+            self._generate_compare_option(self.config_a, prompt_a, "generated_text_a"),
+            self._generate_compare_option(self.config_b, prompt_b, "generated_text_b"),
+            return_exceptions=True,
+        )
+
+        self.current_state = self.STATE_COMPARE
+
+    async def _generate_compare_option(self, cfg, prompt, target_attr):
+        try:
+            llm_config = cfg.get("llm", {})
+            client = create_llm_client(llm_config)
+            full_text = ""
             try:
-                llm_config = cfg.get("llm", {})
-                client = create_llm_client(llm_config)
-                full_text = ""
-                for chunk, reasoning_chunk, _ in client.stream_commit_message(prompt):
-                    # In compare mode, only show final content (skip reasoning display)
+                async for chunk, reasoning_chunk, _ in client.stream_commit_message_async(prompt):
                     if chunk:
                         full_text += chunk
-                        self.call_from_thread(setattr, self, target_attr, full_text)
+                        setattr(self, target_attr, full_text)
                 
                 full_text = clean_markdown_code_block(full_text)
-                self.call_from_thread(setattr, self, target_attr, full_text)
-            except Exception as e:
-                self.call_from_thread(self.notify, f"Error generating {target_attr}: {e}", severity="error")
-
-        import threading
-        t1 = threading.Thread(target=run_gen, args=(self.config_a, prompt_a, "generated_text_a"))
-        t2 = threading.Thread(target=run_gen, args=(self.config_b, prompt_b, "generated_text_b"))
-        
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
-
-        self.call_from_thread(setattr, self, "current_state", self.STATE_COMPARE)
+                setattr(self, target_attr, full_text)
+            finally:
+                await client.aclose()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.notify(f"Error generating {target_attr}: {e}", severity="error")
 
     def action_select_a(self) -> None:
         if self.current_state == self.STATE_COMPARE:

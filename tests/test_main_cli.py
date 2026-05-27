@@ -79,7 +79,7 @@ def test_generate_and_review_interactive_flow_commit(mock_git_commit, mock_get_k
     """インタラクティブレビューで 'y' を入力した際、コミットが実行され成功することをテスト"""
     # 1. LLM client の stream_commit_message のモック
     mock_client = MagicMock()
-    mock_client.stream_commit_message.return_value = [("Generated commit message", None)]
+    mock_client.stream_commit_message.return_value = [("Generated commit message", None, None)]
     mock_create_client.return_value = mock_client
     
     # 2. キー入力のシミュレーション: 'y'
@@ -109,7 +109,7 @@ def test_generate_and_review_interactive_flow_commit(mock_git_commit, mock_get_k
 def test_generate_and_review_interactive_flow_edit_then_commit(mock_git_commit, mock_launch_editor, mock_get_key, mock_create_client):
     """インタラクティブレビューで 'e' を押して編集し、その後に 'y' でコミットすることをテスト"""
     mock_client = MagicMock()
-    mock_client.stream_commit_message.return_value = [("Draft message", None)]
+    mock_client.stream_commit_message.return_value = [("Draft message", None, None)]
     mock_create_client.return_value = mock_client
     
     # キー入力シミュレーション: 1回目は 'e' (編集), 2回目は 'y' (採用)
@@ -138,7 +138,7 @@ def test_generate_and_review_interactive_flow_edit_then_commit(mock_git_commit, 
 def test_generate_and_review_interactive_flow_cancel(mock_exit, mock_get_key, mock_create_client):
     """インタラクティブレビューで 'n' を押した際、os._exit(0) が呼び出されることをテスト"""
     mock_client = MagicMock()
-    mock_client.stream_commit_message.return_value = [("Draft message", None)]
+    mock_client.stream_commit_message.return_value = [("Draft message", None, None)]
     mock_create_client.return_value = mock_client
     
     mock_get_key.return_value = "n"

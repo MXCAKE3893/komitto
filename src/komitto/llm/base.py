@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generator, Tuple, Optional, Dict, Any, Union
+from typing import Generator, Tuple, Optional, Dict, Any, Union, AsyncGenerator
 
 class LLMClient(ABC):
     @abstractmethod
@@ -17,3 +17,16 @@ class LLMClient(ABC):
         """
         msg, usage = self.generate_commit_message(prompt)
         yield msg, None, usage
+
+    @abstractmethod
+    async def stream_commit_message_async(self, prompt: Union[str, list]) -> AsyncGenerator[Tuple[str, Optional[str], Optional[Dict[str, Any]]], None]:
+        """
+        Asynchronously yields (chunk_text, reasoning_text, metadata) tuples.
+        """
+        pass
+
+    async def aclose(self) -> None:
+        """
+        Asynchronously close any resources held by the client.
+        """
+        pass

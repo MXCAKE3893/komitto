@@ -18,10 +18,18 @@ def dummy_suspend():
 @pytest.fixture(autouse=True)
 def mock_llm_client():
     mock_client = MagicMock()
-    # stream_commit_message は (chunk, usage) のイテレータを返すジェネレータ関数をモック
+    # stream_commit_message_async は (chunk, reasoning_chunk, usage) の3要素をyieldする
+    async def mock_stream_async(*args, **kwargs):
+        yield "Mocked commit message", None, None
+    mock_client.stream_commit_message_async.side_effect = mock_stream_async
+    
     def mock_stream(*args, **kwargs):
-        yield "Mocked commit message", None
+        yield "Mocked commit message", None, None
     mock_client.stream_commit_message.side_effect = mock_stream
+    
+    # aclose も AsyncMock 化
+    from unittest.mock import AsyncMock
+    mock_client.aclose = AsyncMock()
     
     with patch("komitto.tui.app.create_llm_client", return_value=mock_client) as mock_factory:
         yield mock_client
@@ -52,6 +60,30 @@ async def test_komitto_app_run_single(mock_llm_client):
         
         assert app.current_state == "review"
         assert app.generated_text == "Mocked commit message"
+        mock_llm_client.aclose.assert_called_once()
+
+@pytest.mark.anyio
+async def test_komitto_app_cancellation(mock_llm_client):
+    """キャンセル (CancelledError) 時に aclose が呼ばれることをテスト"""
+    config = {"llm": {"provider": "openai"}}
+    app = KomittoApp(config=config, prompt="test prompt")
+    app.suspend = dummy_suspend
+    
+    # 意図的に CancelledError を発生させる
+    async def mock_stream_cancel(*args, **kwargs):
+        import asyncio
+        raise asyncio.CancelledError()
+        yield "", None, None
+        
+    mock_llm_client.stream_commit_message_async.side_effect = mock_stream_cancel
+    
+    async with app.run_test() as pilot:
+        # ワーカーは CancelledError で終了する
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        
+        # キャンセル時でも aclose が呼ばれることを確認
+        mock_llm_client.aclose.assert_called_once()
 
 @pytest.mark.anyio
 async def test_komitto_app_copy_action(mock_llm_client):
@@ -117,14 +149,17 @@ async def test_komitto_app_run_compare():
     app.suspend = dummy_suspend  # suspend のモック化
     
     mock_client_a = MagicMock()
-    def mock_stream_a(*args, **kwargs):
-        yield "Msg A from OpenAI", None
-    mock_client_a.stream_commit_message.side_effect = mock_stream_a
+    async def mock_stream_a(*args, **kwargs):
+        yield "Msg A from OpenAI", None, None
+    mock_client_a.stream_commit_message_async.side_effect = mock_stream_a
+    from unittest.mock import AsyncMock
+    mock_client_a.aclose = AsyncMock()
 
     mock_client_b = MagicMock()
-    def mock_stream_b(*args, **kwargs):
-        yield "Msg B from Gemini", None
-    mock_client_b.stream_commit_message.side_effect = mock_stream_b
+    async def mock_stream_b(*args, **kwargs):
+        yield "Msg B from Gemini", None, None
+    mock_client_b.stream_commit_message_async.side_effect = mock_stream_b
+    mock_client_b.aclose = AsyncMock()
     
     # create_llm_client に渡されるのは llm_config 辞書
     def side_effect(llm_cfg):
@@ -149,3 +184,6 @@ async def test_komitto_app_run_compare():
             assert app.current_state == "review"
             assert app.generated_text == "Msg A from OpenAI"
             assert app.config == {"llm": {"provider": "openai"}}
+            
+            mock_client_a.aclose.assert_called_once()
+            mock_client_b.aclose.assert_called_once()

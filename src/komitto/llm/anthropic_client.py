@@ -10,7 +10,8 @@ class AnthropicClient(LLMClient):
             raise ValueError("Anthropic API key is missing. Set it in komitto.toml or environment variable 'ANTHROPIC_API_KEY'.")
         
         self.client = anthropic.Anthropic(api_key=api_key)
-        self.model = config.get("model", "claude-3-opus-20240229")
+        self.async_client = anthropic.AsyncAnthropic(api_key=api_key)
+        self.model = config.get("model", "claude-3-5-sonnet-latest")
 
     def _prepare_messages(self, prompt: Union[str, list]):
         if isinstance(prompt, str):
@@ -56,3 +57,25 @@ class AnthropicClient(LLMClient):
                     "total_tokens": final_msg.usage.input_tokens + final_msg.usage.output_tokens
                 }
                 yield "", None, usage
+
+    async def stream_commit_message_async(self, prompt: Union[str, list]):
+        messages = self._prepare_messages(prompt)
+        async with self.async_client.messages.stream(
+            max_tokens=1024,
+            messages=messages,
+            model=self.model,
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text, None, None
+            
+            final_msg = await stream.get_final_message()
+            if final_msg.usage:
+                usage = {
+                    "prompt_tokens": final_msg.usage.input_tokens,
+                    "completion_tokens": final_msg.usage.output_tokens,
+                    "total_tokens": final_msg.usage.input_tokens + final_msg.usage.output_tokens
+                }
+                yield "", None, usage
+
+    async def aclose(self) -> None:
+        await self.async_client.close()

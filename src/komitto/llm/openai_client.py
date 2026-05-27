@@ -1,6 +1,6 @@
 import os
 from typing import Union
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 from .base import LLMClient
 
 class OpenAIClient(LLMClient):
@@ -13,11 +13,16 @@ class OpenAIClient(LLMClient):
             # but standard OpenAI does. We'll warn or let the SDK handle the error if missing.
             pass
 
-        self.client = OpenAI(
-            api_key=api_key or "dummy", # Some local servers need a dummy key
-            base_url=base_url
-        )
-        self.model = config.get("model", "gpt-5.4-mini")
+        common_kwargs = {
+            "api_key": api_key or "dummy",
+            "base_url": base_url,
+            "timeout": config.get("timeout", 30.0),
+            "max_retries": config.get("max_retries", 2),
+        }
+
+        self.client = OpenAI(**common_kwargs)
+        self.async_client = AsyncOpenAI(**common_kwargs)
+        self.model = config.get("model", "gpt-4o-mini")
 
     def _prepare_messages(self, prompt: Union[str, list]):
         if isinstance(prompt, str):
@@ -76,3 +81,41 @@ class OpenAIClient(LLMClient):
                 yield content, reasoning_content, usage
             elif usage:
                 yield "", None, usage
+
+    async def stream_commit_message_async(self, prompt: Union[str, list]):
+        messages = self._prepare_messages(prompt)
+        
+        try:
+            stream = await self.async_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=True,
+                stream_options={"include_usage": True}
+            )
+        except TypeError:
+            # Fallback for older SDKs or backends that don't support stream_options
+            stream = await self.async_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=True
+            )
+
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content if chunk.choices else None
+            reasoning_content = getattr(chunk.choices[0].delta, 'reasoning_content', None) if chunk.choices else None
+            
+            usage = None
+            if hasattr(chunk, "usage") and chunk.usage:
+                usage = {
+                    "prompt_tokens": chunk.usage.prompt_tokens,
+                    "completion_tokens": chunk.usage.completion_tokens,
+                    "total_tokens": chunk.usage.total_tokens
+                }
+            
+            if content or reasoning_content:
+                yield content, reasoning_content, usage
+            elif usage:
+                yield "", None, usage
+
+    async def aclose(self) -> None:
+        await self.async_client.close()

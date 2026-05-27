@@ -55,3 +55,24 @@ class GeminiClient(LLMClient):
                     "total_tokens": chunk.usage_metadata.total_token_count
                 }
             yield chunk.text, None, usage
+
+    async def stream_commit_message_async(self, prompt: Union[str, list]):
+        contents = self._prepare_messages(prompt)
+        response = await self.client.aio.models.generate_content_stream(
+            model=self.model_name,
+            contents=contents
+        )
+        
+        async for chunk in response:
+            usage = None
+            if hasattr(chunk, 'usage_metadata'):
+                 usage = {
+                    "prompt_tokens": chunk.usage_metadata.prompt_token_count,
+                    "completion_tokens": chunk.usage_metadata.candidates_token_count,
+                    "total_tokens": chunk.usage_metadata.total_token_count
+                }
+            yield chunk.text, None, usage
+
+    async def aclose(self) -> None:
+        if hasattr(self.client, 'aio') and hasattr(self.client.aio, 'close'):
+            await self.client.aio.close()
