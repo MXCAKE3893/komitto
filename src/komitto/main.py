@@ -65,19 +65,19 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
             start_time = time.time()
             input_chars = len(final_text)
             
+            from rich.spinner import Spinner
+            spinner = Spinner("dots", text=f"⏳ Generating {title_suffix}...")
+            
             with Live(
-                Panel(
-                    Markdown(""), 
-                    title=f"⏳ Generating {title_suffix}...", 
-                    border_style="#e5c07b",
-                    title_align="left"
-                ), 
+                spinner, 
                 console=console, 
                 refresh_per_second=10
             ) as live:
+                first_chunk_received = False
                 for chunk, usage in client.stream_commit_message(final_text):
                     if chunk:
                         commit_message += chunk
+                        first_chunk_received = True
                     
                     if usage:
                         usage_stats = usage
@@ -101,14 +101,15 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
                          est_out_tok = len(commit_message) // 4
                          token_info = f"\nInput: {input_chars} chars / Est. Output: {est_out_tok} toks{speed_info}"
 
-                    live.update(Panel(
-                        Group(
-                            Markdown(commit_message),
-                            Text.from_markup(token_info, style="dim")
-                        ),
-                        title=f"Generating {title_suffix}...", 
-                        border_style="blue"
-                    ))
+                    if first_chunk_received:
+                        live.update(Panel(
+                            Group(
+                                Markdown(commit_message),
+                                Text.from_markup(token_info, style="dim")
+                            ),
+                            title=f"Generating {title_suffix}...", 
+                            border_style="blue"
+                        ))
 
             console.clear()
             final_panel_title = f"Generated Commit Message {title_suffix}"

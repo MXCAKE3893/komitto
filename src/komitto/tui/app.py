@@ -111,10 +111,41 @@ class KomittoApp(App):
     def on_mount(self) -> None:
         """Called when app starts."""
         self.title = "Komitto"
+        self._anim_frame = 0
+        self._anim_timer = self.set_interval(0.1, self._animate_loading)
         if self.is_compare_mode:
             self.generate_compare()
         else:
             self.generate_message()
+
+    def _animate_loading(self) -> None:
+        if self.current_state != self.STATE_GENERATING:
+            return
+
+        frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        frame = frames[self._anim_frame % len(frames)]
+        self._anim_frame += 1
+
+        if not self.is_compare_mode:
+            if not self.generated_text:
+                try:
+                    self.query_one("#status-label").update(f"{frame} Generating commit message...")
+                except: pass
+            else:
+                try:
+                    self.query_one("#status-label").update("⏳ Generating commit message...")
+                except: pass
+        else:
+            if not self.generated_text_a and not self.generated_text_b:
+                try:
+                    self.query_one("#left-panel Label").update(f"{frame} Option A: {self.name_a}")
+                    self.query_one("#right-panel Label").update(f"{frame} Option B: {self.name_b}")
+                except: pass
+            else:
+                try:
+                    self.query_one("#left-panel Label").update(f"📝 Option A: {self.name_a}")
+                    self.query_one("#right-panel Label").update(f"📝 Option B: {self.name_b}")
+                except: pass
 
     def watch_generated_text(self, text: str) -> None:
         if not self.is_compare_mode or self.current_state == self.STATE_REVIEW:
