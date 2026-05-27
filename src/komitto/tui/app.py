@@ -7,7 +7,7 @@ from textual.reactive import reactive
 from textual.screen import ModalScreen
 import asyncio
 import pyperclip
-
+from typing import Optional
 from komitto.llm import create_llm_client
 from komitto.git_utils import git_commit
 from komitto.editor import launch_editor
@@ -72,7 +72,7 @@ class KomittoApp(App):
     generated_text_a = reactive("")
     generated_text_b = reactive("")
 
-    def __init__(self, config: dict | None = None, prompt: str = "", compare_configs: list[tuple[str, dict]] | None = None, **kwargs):
+    def __init__(self, config: Optional[dict] = None, prompt: str = "", compare_configs: Optional[list[tuple[str, dict]]] = None, **kwargs):
         super().__init__(**kwargs)
         self.prompt_text = prompt
         self.compare_configs = compare_configs
@@ -421,7 +421,7 @@ class KomittoApp(App):
         if self.current_state != self.STATE_REVIEW:
             return
         
-        def handle_modal_result(result: str | None) -> None:
+        def handle_modal_result(result: Optional[str]) -> None:
             if result is None:
                 return
             if result:

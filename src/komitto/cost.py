@@ -1,7 +1,8 @@
+from typing import Optional
 from komitto.i18n import t
 
 
-def calculate_cost(llm_config: dict, prompt_tokens: int, completion_tokens: int) -> dict | None:
+def calculate_cost(llm_config: dict, prompt_tokens: int, completion_tokens: int) -> Optional[dict]:
     """
     トークン使用量からコストを計算する
     
@@ -40,7 +41,7 @@ def calculate_cost(llm_config: dict, prompt_tokens: int, completion_tokens: int)
     }
 
 
-def format_cost(cost_data: dict | None) -> str:
+def format_cost(cost_data: Optional[dict]) -> str:
     if not cost_data:
         return t("tui.cost_unknown")
     
