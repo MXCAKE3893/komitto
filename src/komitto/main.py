@@ -19,7 +19,7 @@ from .config import load_config, init_config, resolve_config
 from .llm import create_llm_client
 from .git_utils import get_git_diff, get_git_log, git_commit
 from .editor import launch_editor
-from .prompt import build_prompt
+from .prompt import build_prompt, clean_markdown_code_block
 from .i18n import t
 
 console = Console()
@@ -111,6 +111,7 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
                             border_style="blue"
                         ))
 
+            commit_message = clean_markdown_code_block(commit_message)
             console.clear()
             final_panel_title = f"Generated Commit Message {title_suffix}"
             if usage_stats:

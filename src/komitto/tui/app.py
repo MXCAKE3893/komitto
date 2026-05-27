@@ -12,6 +12,7 @@ from komitto.git_utils import git_commit
 from komitto.editor import launch_editor
 from komitto.i18n import t
 from komitto.cost import calculate_cost, format_cost
+from komitto.prompt import clean_markdown_code_block
 
 
 class CustomHeader(Static):
@@ -253,6 +254,8 @@ class KomittoApp(App):
             
             # Add assistant response to history
             if full_text:
+                full_text = clean_markdown_code_block(full_text)
+                self.call_from_thread(setattr, self, "generated_text", full_text)
                 self.messages_history.append({"role": "assistant", "content": full_text})
             
         except Exception as e:
@@ -278,6 +281,8 @@ class KomittoApp(App):
                     if chunk:
                         full_text += chunk
                         self.call_from_thread(setattr, self, target_attr, full_text)
+                full_text = clean_markdown_code_block(full_text)
+                self.call_from_thread(setattr, self, target_attr, full_text)
             except Exception as e:
                 self.call_from_thread(self.notify, f"Error generating {target_attr}: {e}", severity="error")
 

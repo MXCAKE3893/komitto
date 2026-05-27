@@ -101,3 +101,15 @@ def build_prompt(system_prompt: str, recent_logs: Optional[str], user_context: s
     full_payload.append(xml_output)
 
     return "\n".join(full_payload)
+
+def clean_markdown_code_block(text: str) -> str:
+    """LLMが生成したマークダウンのコードブロック(```)を除去する"""
+    if not text:
+        return text
+    
+    text = text.strip()
+    match = re.match(r'^```[^\n]*\n(.*)```$', text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+        
+    return text
