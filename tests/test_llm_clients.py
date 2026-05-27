@@ -95,13 +95,13 @@ class TestLLMClients(unittest.TestCase):
         mock_client.models.generate_content.return_value = mock_response
 
         # Test
-        config = {"api_key": "test_key", "model": "gemini-pro"}
+        config = {"api_key": "test_key", "model": "gemini-3.5-flash"}
         client = GeminiClient(config)
         msg, usage = client.generate_commit_message("prompt")
 
         # Assertions
         mock_client.models.generate_content.assert_called_with(
-            model="gemini-pro", contents="prompt"
+            model="gemini-3.5-flash", contents="prompt"
         )
         self.assertEqual(msg, "Commit message")
         self.assertEqual(usage, {
@@ -132,13 +132,13 @@ class TestLLMClients(unittest.TestCase):
         mock_client.models.generate_content_stream.return_value = iter([chunk1, chunk2])
 
         # Test
-        config = {"api_key": "test_key", "model": "gemini-pro"}
+        config = {"api_key": "test_key", "model": "gemini-3.5-flash"}
         client = GeminiClient(config)
         chunks = list(client.stream_commit_message("prompt"))
         
         # Assertions
         mock_client.models.generate_content_stream.assert_called_with(
-            model="gemini-pro", contents="prompt"
+            model="gemini-3.5-flash", contents="prompt"
         )
         self.assertEqual(chunks[0][0], "Commit ")
         self.assertEqual(chunks[1][0], "message")
@@ -170,5 +170,53 @@ class TestLLMClients(unittest.TestCase):
             "total_tokens": 30
         })
 
+    def test_create_llm_client_unknown_provider(self):
+        """未知のプロバイダが指定された場合に ValueError が発生することをテスト"""
+        from komitto.llm.factory import create_llm_client
+        with self.assertRaises(ValueError):
+            create_llm_client({"provider": "unknown_provider"})
+
+    @patch('komitto.llm.openai_client.OpenAI')
+    def test_create_llm_client_openai(self, mock_openai):
+        """openai プロバイダで OpenAIClient が正しく作成されることをテスト"""
+        from komitto.llm.factory import create_llm_client
+        client = create_llm_client({"provider": "openai", "api_key": "test"})
+        self.assertEqual(client.__class__.__name__, "OpenAIClient")
+
+    @patch('komitto.llm.gemini_client.genai')
+    def test_gemini_client_missing_api_key(self, mock_genai):
+        """APIキーが不足している場合に GeminiClient の初期化時に ValueError が発生することをテスト"""
+        import os
+        # 環境変数と config 両方から API キーを消去
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(ValueError) as ctx:
+                GeminiClient({"model": "gemini-3.5-flash"})
+            self.assertIn("API key is missing", str(ctx.exception))
+
+    @patch('komitto.llm.anthropic_client.anthropic.Anthropic')
+    def test_anthropic_client_missing_api_key(self, mock_anthropic):
+        """APIキーが不足している場合に AnthropicClient の初期化時に ValueError が発生することをテスト"""
+        import os
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(ValueError) as ctx:
+                # config に api_key がない場合
+                AnthropicClient({"model": "claude-3"})
+            self.assertIn("API key is missing", str(ctx.exception))
+
+    @patch('komitto.llm.openai_client.OpenAI')
+    def test_openai_client_api_error_propagation(self, mock_openai):
+        """API呼び出し中にエラーが発生した場合、例外がそのまま伝播することをテスト"""
+        mock_instance = MagicMock()
+        mock_openai.return_value = mock_instance
+        # createが例外を投げるように設定
+        mock_instance.chat.completions.create.side_effect = Exception("API connection timeout")
+
+        config = {"api_key": "test_key", "model": "gpt-4"}
+        client = OpenAIClient(config)
+        with self.assertRaises(Exception) as ctx:
+            client.generate_commit_message("prompt")
+        self.assertEqual(str(ctx.exception), "API connection timeout")
+
 if __name__ == '__main__':
     unittest.main()
+
