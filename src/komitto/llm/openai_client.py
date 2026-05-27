@@ -62,6 +62,7 @@ class OpenAIClient(LLMClient):
 
         for chunk in stream:
             content = chunk.choices[0].delta.content if chunk.choices else None
+            reasoning_content = getattr(chunk.choices[0].delta, 'reasoning_content', None) if chunk.choices else None
             
             usage = None
             if hasattr(chunk, "usage") and chunk.usage:
@@ -71,7 +72,7 @@ class OpenAIClient(LLMClient):
                     "total_tokens": chunk.usage.total_tokens
                 }
             
-            if content:
-                yield content, usage
+            if content or reasoning_content:
+                yield content, reasoning_content, usage
             elif usage:
-                yield "", usage
+                yield "", None, usage

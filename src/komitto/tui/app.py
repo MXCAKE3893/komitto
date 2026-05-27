@@ -104,6 +104,7 @@ class KomittoApp(App):
             else:
                 with Vertical(id="content-area"):
                     yield Label("⏳ Generating commit message...", id="status-label", classes="status-generating")
+                    yield Static("", id="reasoning-view", classes="reasoning-view")
                     yield Markdown("", id="markdown-view")
                     yield Label("", id="stats-label", classes="stats-label")
 
@@ -128,7 +129,17 @@ class KomittoApp(App):
         self._anim_frame += 1
 
         if not self.is_compare_mode:
-            if not self.generated_text:
+            try:
+                reasoning_view = self.query_one("#reasoning-view")
+                is_reasoning = reasoning_view.display
+            except:
+                is_reasoning = False
+            
+            if is_reasoning:
+                try:
+                    self.query_one("#status-label").update(f"{frame} 💭 Thinking...")
+                except: pass
+            elif not self.generated_text:
                 try:
                     self.query_one("#status-label").update(f"{frame} Generating commit message...")
                 except: pass
@@ -147,6 +158,22 @@ class KomittoApp(App):
                     self.query_one("#left-panel Label").update(f"📝 Option A: {self.name_a}")
                     self.query_one("#right-panel Label").update(f"📝 Option B: {self.name_b}")
                 except: pass
+
+    def _show_reasoning_phase(self) -> None:
+        """Switch UI to reasoning phase: show reasoning-view, hide markdown-view."""
+        try:
+            self.query_one("#reasoning-view").display = True
+            self.query_one("#markdown-view").display = False
+        except:
+            pass
+
+    def _show_content_phase(self) -> None:
+        """Switch UI to content phase: hide reasoning-view, show markdown-view."""
+        try:
+            self.query_one("#reasoning-view").display = False
+            self.query_one("#markdown-view").display = True
+        except:
+            pass
 
     def watch_generated_text(self, text: str) -> None:
         if not self.is_compare_mode or self.current_state == self.STATE_REVIEW:
@@ -212,13 +239,42 @@ class KomittoApp(App):
         try:
             client = create_llm_client(llm_config)
             full_text = ""
+            reasoning_full_text = ""
+            is_reasoning_phase = True
             usage_stats = None
             start_time = time.time()
             input_chars = sum(len(m["content"]) for m in self.messages_history)
             
-            for chunk, usage in client.stream_commit_message(self.messages_history):
+            # Show reasoning-view, hide markdown-view initially
+            try:
+                self.call_from_thread(self._show_reasoning_phase)
+            except:
+                pass
+            
+            for chunk, reasoning_chunk, usage in client.stream_commit_message(self.messages_history):
+                if reasoning_chunk:
+                    reasoning_full_text += reasoning_chunk
+                
                 if chunk:
                     full_text += chunk
+                    # First content chunk: transition from reasoning to main text
+                    if is_reasoning_phase:
+                        is_reasoning_phase = False
+                        try:
+                            self.call_from_thread(self._show_content_phase)
+                        except:
+                            pass
+                
+                # Update the appropriate view
+                if is_reasoning_phase and reasoning_full_text:
+                    try:
+                        reasoning_view = self.query_one("#reasoning-view")
+                        lines = reasoning_full_text.strip().split('\n')
+                        display_lines = '\n'.join(lines[-3:])
+                        self.call_from_thread(reasoning_view.update, display_lines)
+                    except:
+                        pass
+                elif full_text:
                     self.call_from_thread(setattr, self, "generated_text", full_text)
                 
                 if usage:
@@ -227,12 +283,13 @@ class KomittoApp(App):
                 elapsed = time.time() - start_time
                 if elapsed > 0:
                     stats_text = ""
+                    phase_label = "💭 " if is_reasoning_phase else "📊 "
                     if usage_stats:
                         p_tok = usage_stats.get('prompt_tokens', '?')
                         c_tok = usage_stats.get('completion_tokens', '?')
                         t_tok = usage_stats.get('total_tokens', '?')
                         speed = c_tok / elapsed if isinstance(c_tok, int) else 0
-                        stats_text = f"📊 Input: {input_chars} chars ({p_tok} tok) | Output: {c_tok} tok | Total: {t_tok} tok | Speed: {speed:.1f} tok/s"
+                        stats_text = f"{phase_label}Input: {input_chars} chars ({p_tok} tok) | Output: {c_tok} tok | Total: {t_tok} tok | Speed: {speed:.1f} tok/s"
                         
                         if isinstance(p_tok, int) and isinstance(c_tok, int):
                             cost_data = calculate_cost(llm_config, p_tok, c_tok)
@@ -240,15 +297,23 @@ class KomittoApp(App):
                                 cost_str = format_cost(cost_data)
                                 stats_text += f" | {cost_str}"
                     else:
-                        est_tok = len(full_text) // 4
-                        speed = len(full_text) / elapsed
-                        stats_text = f"📊 Input: {input_chars} chars | Est. Output: ~{est_tok} tok | Speed: {speed:.1f} char/s"
+                        total_chars = len(full_text) + len(reasoning_full_text)
+                        speed = total_chars / elapsed if total_chars else 0
+                        est_tok = total_chars // 4
+                        stats_text = f"{phase_label}Input: {input_chars} chars | Est. Output: ~{est_tok} tok | Speed: {speed:.1f} char/s"
                     
                     try:
                         stats_label = self.query_one("#stats-label")
                         self.call_from_thread(stats_label.update, stats_text)
                     except:
                         pass
+            
+            # Ensure we're in content phase for review
+            if is_reasoning_phase:
+                try:
+                    self.call_from_thread(self._show_content_phase)
+                except:
+                    pass
             
             self.call_from_thread(setattr, self, "current_state", self.STATE_REVIEW)
             
@@ -277,10 +342,12 @@ class KomittoApp(App):
                 llm_config = cfg.get("llm", {})
                 client = create_llm_client(llm_config)
                 full_text = ""
-                for chunk, _ in client.stream_commit_message(prompt):
+                for chunk, reasoning_chunk, _ in client.stream_commit_message(prompt):
+                    # In compare mode, only show final content (skip reasoning display)
                     if chunk:
                         full_text += chunk
                         self.call_from_thread(setattr, self, target_attr, full_text)
+                
                 full_text = clean_markdown_code_block(full_text)
                 self.call_from_thread(setattr, self, target_attr, full_text)
             except Exception as e:

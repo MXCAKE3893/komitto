@@ -46,7 +46,7 @@ class AnthropicClient(LLMClient):
                 # Anthropic stream helper doesn't easily give usage per chunk yet in this simple iteration, 
                 # but we can get it from stream.get_final_message() at the end.
                 # For now, we yield text.
-                yield text, None
+                yield text, None, None
             
             final_msg = stream.get_final_message()
             if final_msg.usage:
@@ -55,4 +55,4 @@ class AnthropicClient(LLMClient):
                     "completion_tokens": final_msg.usage.output_tokens,
                     "total_tokens": final_msg.usage.input_tokens + final_msg.usage.output_tokens
                 }
-                yield "", usage
+                yield "", None, usage

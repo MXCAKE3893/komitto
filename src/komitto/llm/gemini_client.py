@@ -54,4 +54,4 @@ class GeminiClient(LLMClient):
                     "completion_tokens": chunk.usage_metadata.candidates_token_count,
                     "total_tokens": chunk.usage_metadata.total_token_count
                 }
-            yield chunk.text, usage
+            yield chunk.text, None, usage

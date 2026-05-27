@@ -61,6 +61,7 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
         
         while True:
             commit_message = ""
+            reasoning_message = ""
             usage_stats = None
             start_time = time.time()
             input_chars = len(final_text)
@@ -74,9 +75,14 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
                 refresh_per_second=10
             ) as live:
                 first_chunk_received = False
-                for chunk, usage in client.stream_commit_message(final_text):
+                is_reasoning_phase = True
+                for chunk, reasoning_chunk, usage in client.stream_commit_message(final_text):
                     if chunk:
                         commit_message += chunk
+                        first_chunk_received = True
+                        is_reasoning_phase = False
+                    if reasoning_chunk:
+                        reasoning_message += reasoning_chunk
                         first_chunk_received = True
                     
                     if usage:
@@ -89,7 +95,8 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
                             speed = usage_stats['completion_tokens'] / elapsed
                             speed_info = f" / {speed:.1f} tok/s"
                         else:
-                            speed = len(commit_message) / elapsed
+                            total_chars = len(reasoning_message) + len(commit_message)
+                            speed = total_chars / elapsed if total_chars else 0
                             speed_info = f" / {speed:.1f} char/s"
 
                     token_info = ""
@@ -97,19 +104,33 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
                         p_tok = usage_stats.get('prompt_tokens', '?')
                         c_tok = usage_stats.get('completion_tokens', '?')
                         token_info = f"\nInput: {input_chars} chars ({p_tok} toks) / Output: {c_tok} toks{speed_info}"
-                    elif commit_message:
-                         est_out_tok = len(commit_message) // 4
+                    elif commit_message or reasoning_message:
+                         est_out_tok = (len(commit_message) + len(reasoning_message)) // 4
                          token_info = f"\nInput: {input_chars} chars / Est. Output: {est_out_tok} toks{speed_info}"
 
                     if first_chunk_received:
-                        live.update(Panel(
-                            Group(
-                                Markdown(commit_message),
-                                Text.from_markup(token_info, style="dim")
-                            ),
-                            title=f"Generating {title_suffix}...", 
-                            border_style="blue"
-                        ))
+                        if is_reasoning_phase and reasoning_message:
+                            # Reasoning phase: show only last 3 lines of reasoning
+                            lines = reasoning_message.strip().split('\n')
+                            display_lines = '\n'.join(lines[-3:])
+                            live.update(Panel(
+                                Group(
+                                    Text(display_lines, style="dim italic"),
+                                    Text.from_markup(token_info, style="dim")
+                                ),
+                                title=f"💭 Thinking...", 
+                                border_style="#5c6370"
+                            ))
+                        elif commit_message:
+                            # Main text phase: show only commit message
+                            live.update(Panel(
+                                Group(
+                                    Markdown(commit_message),
+                                    Text.from_markup(token_info, style="dim")
+                                ),
+                                title=f"Generating {title_suffix}...", 
+                                border_style="blue"
+                            ))
 
             commit_message = clean_markdown_code_block(commit_message)
             console.clear()

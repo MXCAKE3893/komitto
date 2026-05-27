@@ -10,10 +10,10 @@ class LLMClient(ABC):
         """
         pass
 
-    def stream_commit_message(self, prompt: Union[str, list]) -> Generator[Tuple[str, Optional[Dict[str, Any]]], None, None]:
+    def stream_commit_message(self, prompt: Union[str, list]) -> Generator[Tuple[str, Optional[str], Optional[Dict[str, Any]]], None, None]:
         """
-        Yields (chunk_text, metadata) tuples.
+        Yields (chunk_text, reasoning_text, metadata) tuples.
         Default implementation wraps generate_commit_message for non-streaming clients.
         """
         msg, usage = self.generate_commit_message(prompt)
-        yield msg, usage
+        yield msg, None, usage
