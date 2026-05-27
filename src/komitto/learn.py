@@ -109,13 +109,11 @@ The prompt itself should be written in the primary language of the commit histor
         except Exception:
             console.print(f"[#e5c07b]⚠️  {t('main.manual_copy_required')}[/#e5c07b]")
 
-        console.print(f"\n[bold yellow]{t('learn.auto_init_prompt')}[/bold yellow]")
-        console.print("[dim](y を入力して Enter を押すと適用、その他のキーで手動設定)[/dim]")
-        console.print("[bold cyan]▶ [/bold cyan]", end="")
+        from rich.prompt import Confirm
         
-        response = input().strip().lower()
+        response = Confirm.ask(f"\n[bold yellow]{t('learn.auto_init_prompt')}[/bold yellow]")
         
-        if response == 'y':
+        if response:
             console.print(f"[#98c379]{t('learn.auto_init_yes')}[/#98c379]")
             
             from .config import init_config_with_prompt
