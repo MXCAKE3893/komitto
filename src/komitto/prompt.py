@@ -78,9 +78,14 @@ def parse_diff_to_xml(diff_content):
     
     return "\n".join(output)
 
-def build_prompt(system_prompt: str, recent_logs: Optional[str], user_context: str, diff_content: str) -> str:
+def build_prompt(system_prompt: str, recent_logs: Optional[str], user_context: str, diff_content: str, reference_content: Optional[str] = None) -> str:
     """最終的なプロンプトを構築する"""
     full_payload = [system_prompt, "\n---\n"]
+    
+    if reference_content:
+        full_payload.append(t("prompt.reference_files_title"))
+        full_payload.append(reference_content)
+        full_payload.append("\n---\n")
     
     if recent_logs:
         full_payload.append(t("prompt.recent_logs_title"))

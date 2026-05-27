@@ -1,4 +1,5 @@
 import sys
+import json
 from pathlib import Path
 import platformdirs
 import copy
@@ -21,6 +22,9 @@ def load_config():
     config = {
         "prompt": {
             "system": t("config.system_prompt")
+        },
+        "context": {
+            "files": []
         },
         "git": {
             "exclude": [
@@ -117,17 +121,22 @@ system = \"\"\"
 {t("config.system_prompt").strip()}
 \"\"\"
 
+[context]
+# Reference files to always include in the prompt (e.g. ["AGENTS.md", "README.md"])
+# プロンプトに必ず含める参考情報ファイル（例: ["AGENTS.md", "README.md"]）
+# files = []
+
 # [llm]
 # # Uncomment and configure below to use AI auto-generation
 # # AI自動生成を使用する場合は以下をコメントアウト解除して設定してください
 # provider = "openai" # "openai", "gemini", "anthropic"
-# model = "gpt-4o"
+# model = "gpt-5.4-mini"
 # # api_key = "sk-..." # Optional if environment variable is set / 省略時は環境変数を使用
 # # base_url = "http://localhost:11434/v1" # For Ollama etc. / Ollamaなどの場合
 # # history_limit = 5 # Number of past commits to include / プロンプトに含める過去のコミット数
 # 
 # # Cost settings (USD per 1M tokens) / コスト設定（100万トークンあたりのUSD）
-# # Example: gpt-4o-2024-08-06 (Input: $2.50, Output: $10.00)
+# # Example: gpt-5.4-mini-2024-08-06 (Input: $2.50, Output: $10.00)
 # # input_cost_per_million = 2.50
 # # output_cost_per_million = 10.00
 
@@ -153,7 +162,7 @@ exclude = [
 
 # [models.gpt4]
 # provider = "openai"
-# model = "gpt-4o"
+# model = "gpt-5.4-mini"
 
 # [contexts.release]
 # template = "simple"
@@ -215,17 +224,22 @@ system = \"\"\"
 {suggestion.strip()}
 \"\"\"
 
+[context]
+# Reference files to always include in the prompt (e.g. ["AGENTS.md", "README.md"])
+# プロンプトに必ず含める参考情報ファイル（例: ["AGENTS.md", "README.md"]）
+# files = []
+
 # [llm]
 # # Uncomment and configure below to use AI auto-generation
 # # AI自動生成を使用する場合は以下をコメントアウト解除して設定してください
 # provider = "openai" # "openai", "gemini", "anthropic"
-# model = "gpt-4o"
+# model = "gpt-5.4-mini"
 # # api_key = "sk-..." # Optional if environment variable is set / 省略時は環境変数を使用
 # # base_url = "http://localhost:11434/v1" # For Ollama etc. / Ollamaなどの場合
 # # history_limit = 5 # Number of past commits to include / プロンプトに含める過去のコミット数
 # 
 # # Cost settings (USD per 1M tokens) / コスト設定（100万トークンあたりのUSD）
-# # Example: gpt-4o-2024-08-06 (Input: $2.50, Output: $10.00)
+# # Example: gpt-5.4-mini-2024-08-06 (Input: $2.50, Output: $10.00)
 # # input_cost_per_million = 2.50
 # # output_cost_per_million = 10.00
 
@@ -251,7 +265,7 @@ exclude = [
 
 # [models.gpt4]
 # provider = "openai"
-# model = "gpt-4o"
+# model = "gpt-5.4-mini"
 
 # [contexts.release]
 # template = "simple"
@@ -290,10 +304,29 @@ def _build_toml_content(config: dict, new_system_prompt: str) -> str:
     lines.append('"""')
     lines.append("")
     
+    def format_value(val):
+        if isinstance(val, list):
+            items = [format_value(item) for item in val]
+            return "[" + ", ".join(items) + "]"
+        elif isinstance(val, str):
+            return json.dumps(val, ensure_ascii=False)
+        elif isinstance(val, bool):
+            return "true" if val else "false"
+        else:
+            return repr(val)
+
     prompt_config = config.get("prompt", {})
     for key, value in prompt_config.items():
         if key != "system":
-            lines.append(f"{key} = {repr(value)}")
+            lines.append(f"{key} = {format_value(value)}")
+            
+    if "context" in config:
+        lines.append("")
+        lines.append("[context]")
+        lines.append("# Files to include as context")
+        lines.append("# コンテキストとして含めるファイル")
+        for key, value in config["context"].items():
+            lines.append(f"{key} = {format_value(value)}")
     
     if "llm" in config:
         lines.append("")
@@ -301,7 +334,7 @@ def _build_toml_content(config: dict, new_system_prompt: str) -> str:
         lines.append("# AI auto-generation settings")
         lines.append("# AI自動生成の設定")
         for key, value in config["llm"].items():
-            lines.append(f"{key} = {repr(value)}")
+            lines.append(f"{key} = {format_value(value)}")
     
     if "git" in config:
         lines.append("")
@@ -309,10 +342,7 @@ def _build_toml_content(config: dict, new_system_prompt: str) -> str:
         lines.append("# Files to exclude from the diff (glob patterns)")
         lines.append("# 差分から除外するファイル（globパターン）")
         if "exclude" in config["git"]:
-            lines.append("exclude = [")
-            for pattern in config["git"]["exclude"]:
-                lines.append(f'    "{pattern}",')
-            lines.append("]")
+            lines.append(f"exclude = {format_value(config['git']['exclude'])}")
     
     for section_name in ["templates", "models", "contexts"]:
         if section_name in config:
@@ -320,7 +350,7 @@ def _build_toml_content(config: dict, new_system_prompt: str) -> str:
             for subsection_name, subsection_data in config[section_name].items():
                 lines.append(f"[{section_name}.{subsection_name}]")
                 for key, value in subsection_data.items():
-                    lines.append(f"{key} = {repr(value)}")
+                    lines.append(f"{key} = {format_value(value)}")
                 lines.append("")
     
     return "\n".join(lines)

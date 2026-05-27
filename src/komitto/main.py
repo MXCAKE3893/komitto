@@ -186,6 +186,29 @@ def generate_and_review(config, args, system_prompt, final_text, title_suffix=""
         console.print(f"[#e06c75]❌ Error calling LLM API {title_suffix}: {e}[/#e06c75]")
         return None
 
+def load_reference_files(files: list) -> str:
+    if not files:
+        return None
+        
+    from pathlib import Path
+    contents = []
+    
+    for rel_path in files:
+        path = Path.cwd() / rel_path
+        if path.exists():
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                contents.append(f"### {rel_path}\n\n{content}")
+            except Exception as e:
+                console.print(t("config.load_warning", path, e), style="yellow")
+        else:
+            console.print(t("config.reference_file_missing", rel_path), style="yellow")
+            
+    if contents:
+        return "\n\n".join(contents)
+    return None
+
 def main():
     parser = argparse.ArgumentParser(description="Generate semantic commit prompt for LLMs from git diff.")
     parser.add_argument('context', nargs='*', help='Optional context or comments about the changes')
@@ -231,7 +254,9 @@ def main():
         compare_configs = []
         for name, cfg in configs:
             system_prompt = cfg["prompt"]["system"]
-            final_text = build_prompt(system_prompt, recent_logs, user_context, diff_content)
+            ref_files = cfg.get("context", {}).get("files", [])
+            ref_content = load_reference_files(ref_files)
+            final_text = build_prompt(system_prompt, recent_logs, user_context, diff_content, ref_content)
             compare_configs.append((name, cfg, final_text))
         
         from .tui.app import KomittoApp
@@ -241,7 +266,9 @@ def main():
     else:
         cfg = configs[0][1]
         system_prompt = cfg["prompt"]["system"]
-        final_text = build_prompt(system_prompt, recent_logs, user_context, diff_content)
+        ref_files = cfg.get("context", {}).get("files", [])
+        ref_content = load_reference_files(ref_files)
+        final_text = build_prompt(system_prompt, recent_logs, user_context, diff_content, ref_content)
         
         if cfg.get("llm", {}).get("provider"):
             if args.interactive:
