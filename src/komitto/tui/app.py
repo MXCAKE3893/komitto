@@ -16,6 +16,31 @@ from komitto.cost import calculate_cost, format_cost
 from komitto.prompt import clean_markdown_code_block
 
 
+class IMEFriendlyInput(Input):
+    """IME入力に対応したInputウィジェット。
+
+    日本語等のIME変換時にIME候補ウィンドウが正しい位置に表示されるよう、
+    フォーカス中はターミナルカーソル位置を定期的に同期する。
+    """
+
+    def on_focus(self) -> None:
+        """フォーカス時にカーソル位置の定期同期を開始。"""
+        self._ime_sync_timer = self.set_interval(
+            0.05, self._sync_cursor_position
+        )
+
+    def on_blur(self) -> None:
+        """フォーカス解除時に定期同期を停止。"""
+        if hasattr(self, '_ime_sync_timer') and self._ime_sync_timer:
+            self._ime_sync_timer.stop()
+            self._ime_sync_timer = None
+
+    def _sync_cursor_position(self) -> None:
+        """ターミナルカーソル位置をInputのカーソル位置に同期。"""
+        if self.has_focus:
+            self.app.cursor_position = self.cursor_screen_offset
+
+
 class CustomHeader(Static):
     """A custom header widget for Komitto TUI."""
     
@@ -37,7 +62,7 @@ class RegenerateModal(ModalScreen):
     def compose(self) -> ComposeResult:
         with Vertical(id="regen-modal"):
             yield Label(t("tui.regen_title"), id="regen-title")
-            yield Input(placeholder=t("tui.regen_placeholder"), id="regen-input")
+            yield IMEFriendlyInput(placeholder=t("tui.regen_placeholder"), id="regen-input")
     
     def on_mount(self) -> None:
         self.query_one("#regen-input", Input).focus()
