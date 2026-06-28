@@ -244,6 +244,32 @@ def test_load_reference_files_read_error(mock_print, tmp_path, monkeypatch):
 # main() 結合/引数分岐テスト
 # ==============================================================================
 
+@patch("komitto.main.get_package_version", return_value="1.2.3")
+@patch("komitto.main.load_config")
+def test_main_version(mock_load, mock_get_package_version, capsys):
+    """'komitto --version' 引数が指定された場合にバージョンを表示して終了することをテスト"""
+    with patch("sys.argv", ["komitto", "--version"]):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+    assert exc_info.value.code == 0
+    assert capsys.readouterr().out == "komitto v1.2.3\n"
+    mock_get_package_version.assert_called_once()
+    mock_load.assert_not_called()
+
+@patch("komitto.main.get_package_version", return_value="1.2.3")
+@patch("komitto.main.load_config")
+def test_main_version_short_option(mock_load, mock_get_package_version, capsys):
+    """'komitto -v' 引数が指定された場合にバージョンを表示して終了することをテスト"""
+    with patch("sys.argv", ["komitto", "-v"]):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+    assert exc_info.value.code == 0
+    assert capsys.readouterr().out == "komitto v1.2.3\n"
+    mock_get_package_version.assert_called_once()
+    mock_load.assert_not_called()
+
 @patch("komitto.main.init_config")
 def test_main_subcommand_init(mock_init_config):
     """'komitto init' 引数が指定された場合に init_config が呼び出されることをテスト"""

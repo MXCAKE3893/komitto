@@ -1,6 +1,7 @@
 import sys
 import os
 import argparse
+from importlib.metadata import PackageNotFoundError, version
 import pyperclip
 import time
 
@@ -23,6 +24,12 @@ from .prompt import build_prompt, clean_markdown_code_block
 from .i18n import t
 
 console = Console()
+
+def get_package_version():
+    try:
+        return version("komitto")
+    except PackageNotFoundError:
+        return "unknown"
 
 def get_key():
     """Reads a single key from the console."""
@@ -233,6 +240,7 @@ def load_reference_files(files: list) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate semantic commit prompt for LLMs from git diff.")
+    parser.add_argument('-v', '--version', action='version', version=f'%(prog)s v{get_package_version()}')
     parser.add_argument('context', nargs='*', help='Optional context or comments about the changes')
     parser.add_argument('-i', '--interactive', action='store_true', help='Enable interactive mode to review/edit the message')
     parser.add_argument('-c', '--context-name', dest='context_name', help='Specify a context profile from config')
