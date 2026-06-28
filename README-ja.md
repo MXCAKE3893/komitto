@@ -6,6 +6,10 @@
 
 `git diff` を解析し、LLM API（OpenAI, Gemini, Anthropic, Ollama など）と連携してセマンティックなコミットメッセージを生成するCLIツールです。コミット履歴からプロジェクト固有のスタイルを学習して自動適用する機能（`komitto learn`）も持ちます。
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/mxcake3893/komitto/main/assets/komitto-demo.gif" alt="ターミナルで実行中のkomitto">
+</p>
+
 ## 主な機能
 
 - ステージされた変更（`git diff --staged`）を解析し、オプションで複数のコンテキストを比較可能。

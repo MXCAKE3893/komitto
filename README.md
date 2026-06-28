@@ -6,6 +6,10 @@
 
 A CLI tool that analyzes `git diff` and calls LLM APIs (OpenAI, Gemini, Anthropic, Ollama, etc.) to generate semantic commit messages. It can also learn your project's commit style from history (`komitto learn`) and apply it automatically.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/mxcake3893/komitto/main/assets/komitto-demo.gif" alt="komitto running in terminal">
+</p>
+
 ## Key Features
 
 - Analyzes staged changes (`git diff --staged`) and optionally compares multiple contexts.
