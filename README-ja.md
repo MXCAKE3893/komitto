@@ -161,6 +161,7 @@ model = "gpt-5.4-mini"
 # api_key = "sk-..." # 環境変数を使用する場合は省略可能
 # base_url = "http://localhost:11434/v1" # Ollamaなどの場合
 # history_limit = 5
+# timeout = 300 # リクエストタイムアウト秒数（既定: 300）
 
 [git]
 # 差分から除外するファイル（globパターン）

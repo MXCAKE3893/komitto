@@ -134,6 +134,7 @@ system = \"\"\"
 # # api_key = "sk-..." # Optional if environment variable is set / 省略時は環境変数を使用
 # # base_url = "http://localhost:11434/v1" # For Ollama etc. / Ollamaなどの場合
 # # history_limit = 5 # Number of past commits to include / プロンプトに含める過去のコミット数
+# # timeout = 300 # Request timeout in seconds (default: 300) / リクエストタイムアウト秒数（既定: 300）
 # 
 # # Cost settings (USD per 1M tokens) / コスト設定（100万トークンあたりのUSD）
 # # Example: gpt-5.4-mini (Input: $0.75, Output: $4.50)
@@ -237,6 +238,7 @@ system = \"\"\"
 # # api_key = "sk-..." # Optional if environment variable is set / 省略時は環境変数を使用
 # # base_url = "http://localhost:11434/v1" # For Ollama etc. / Ollamaなどの場合
 # # history_limit = 5 # Number of past commits to include / プロンプトに含める過去のコミット数
+# # timeout = 300 # Request timeout in seconds (default: 300) / リクエストタイムアウト秒数（既定: 300）
 # 
 # # Cost settings (USD per 1M tokens) / コスト設定（100万トークンあたりのUSD）
 # # Example: gpt-5.4-mini (Input: $0.75, Output: $4.50)

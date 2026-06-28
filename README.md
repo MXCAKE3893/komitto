@@ -159,6 +159,7 @@ model = "gpt-5.4-mini"
 # api_key = "sk-..." # Optional if environment variable is set
 # base_url = "http://localhost:11434/v1" # For Ollama etc.
 # history_limit = 5
+# timeout = 300 # Request timeout in seconds (default: 300)
 
 [git]
 # Files to exclude from the diff (glob patterns)
