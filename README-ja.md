@@ -174,13 +174,13 @@ exclude = [
 # [templates.simple]
 # system = "変更内容を1行で要約してください。"
 
-# [models.gpt4]
+# [models.gpt54mini]
 # provider = "openai"
 # model = "gpt-5.4-mini"
 
 # [contexts.release]
 # template = "simple"
-# model = "gpt4"
+# model = "gpt54mini"
 ```
 
 ### Ollama/LM Studio の使用

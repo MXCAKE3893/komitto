@@ -116,7 +116,7 @@ def test_resolve_config_complex():
         "contexts": {
             "release": {
                 "template": "simple",
-                "model": "gpt4"
+                "model": "gpt54mini"
             },
             "incomplete": {
                 "model": "non_existent_model"
@@ -129,9 +129,9 @@ def test_resolve_config_complex():
             }
         },
         "models": {
-            "gpt4": {
+            "gpt54mini": {
                 "provider": "openai",
-                "model": "gpt-4"
+                "model": "gpt-5.4-mini"
             }
         }
     }
@@ -141,7 +141,7 @@ def test_resolve_config_complex():
     assert res["prompt"]["system"] == "Simple Prompt System"
     assert res["prompt"]["temperature"] == 0.2
     assert res["llm"]["provider"] == "openai"
-    assert res["llm"]["model"] == "gpt-4"
+    assert res["llm"]["model"] == "gpt-5.4-mini"
 
     # 2. 直接パラメータを指定した解決 (ベース値の上書き優先順位)
     res_direct = resolve_config(
@@ -150,7 +150,7 @@ def test_resolve_config_complex():
         template_name="non_existent_template",  # 存在しないので無視
         model_name="direct_model"               # models にないが引数でモデルが指定された場合
     )
-    # context のモデル (gpt4) より、直接指定された model_name (modelsにないためマージは発生しないが、直に引き継がれはしない。modelsにあるものしか適用されない)
+    # context のモデル (gpt54mini) より、直接指定された model_name (modelsにないためマージは発生しないが、直に引き継がれはしない。modelsにあるものしか適用されない)
     # 実装：model_nameがmodelsにあれば resolved_config["llm"] = mdl
     # modelsにない場合はマージ処理がスキップされるため、context_a の model 設定も適用されない（target_model = "direct_model" に上書きされるため）
     assert "llm" not in res_direct  # direct_model が models に定義されていないため llm セクションは生成されない

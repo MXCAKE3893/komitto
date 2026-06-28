@@ -9,9 +9,10 @@ class AnthropicClient(LLMClient):
         if not api_key:
             raise ValueError("Anthropic API key is missing. Set it in komitto.toml or environment variable 'ANTHROPIC_API_KEY'.")
         
-        self.client = anthropic.Anthropic(api_key=api_key)
-        self.async_client = anthropic.AsyncAnthropic(api_key=api_key)
-        self.model = config.get("model", "claude-3-5-sonnet-latest")
+        timeout = config.get("timeout", 300.0)
+        self.client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
+        self.async_client = anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout)
+        self.model = config.get("model", "claude-sonnet-4-6")
 
     def _prepare_messages(self, prompt: Union[str, list]):
         if isinstance(prompt, str):

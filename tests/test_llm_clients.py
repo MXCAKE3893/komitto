@@ -37,7 +37,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         mock_instance.chat.completions.create.return_value = mock_response
 
         # Test
-        config = {"api_key": "test_key", "model": "gpt-4"}
+        config = {"api_key": "test_key", "model": "gpt-5.4-mini"}
         client = OpenAIClient(config)
         msg, usage = client.generate_commit_message("prompt")
 
@@ -48,6 +48,28 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
             "completion_tokens": 20,
             "total_tokens": 30
         })
+
+    @patch('komitto.llm.openai_client.AsyncOpenAI')
+    @patch('komitto.llm.openai_client.OpenAI')
+    def test_openai_client_uses_longer_default_timeout(self, mock_openai, mock_async_openai):
+        config = {"api_key": "test_key", "model": "gpt-5.4-mini"}
+
+        OpenAIClient(config)
+
+        mock_openai.assert_called_once()
+        mock_async_openai.assert_called_once()
+        self.assertEqual(mock_openai.call_args.kwargs["timeout"], 300.0)
+        self.assertEqual(mock_async_openai.call_args.kwargs["timeout"], 300.0)
+
+    @patch('komitto.llm.openai_client.AsyncOpenAI')
+    @patch('komitto.llm.openai_client.OpenAI')
+    def test_openai_client_respects_configured_timeout(self, mock_openai, mock_async_openai):
+        config = {"api_key": "test_key", "model": "gpt-5.4-mini", "base_url": "http://localhost:8000/v1", "timeout": 45}
+
+        OpenAIClient(config)
+
+        self.assertEqual(mock_openai.call_args.kwargs["timeout"], 45)
+        self.assertEqual(mock_async_openai.call_args.kwargs["timeout"], 45)
 
     @patch('komitto.llm.openai_client.OpenAI')
     def test_openai_client_stream(self, mock_openai):
@@ -86,7 +108,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         mock_instance.chat.completions.create.return_value = iter([chunk0, chunk1, chunk2, chunk3, chunk4])
 
         # Test
-        config = {"api_key": "test_key", "model": "gpt-4"}
+        config = {"api_key": "test_key", "model": "gpt-5.4-mini"}
         client = OpenAIClient(config)
         
         chunks = list(client.stream_commit_message("prompt"))
@@ -143,7 +165,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         future.set_result(mock_stream())
         mock_instance.chat.completions.create.return_value = future
 
-        config = {"api_key": "test_key", "model": "gpt-4"}
+        config = {"api_key": "test_key", "model": "gpt-5.4-mini"}
         client = OpenAIClient(config)
         
         chunks = []
@@ -212,6 +234,14 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
             "completion_tokens": 20,
             "total_tokens": 30
         })
+
+    @patch('komitto.llm.gemini_client.genai')
+    def test_gemini_client_uses_configured_timeout(self, mock_genai):
+        GeminiClient({"api_key": "test_key", "model": "gemini-3.5-flash", "timeout": 45})
+
+        mock_genai.Client.assert_called_once()
+        http_options = mock_genai.Client.call_args.kwargs["http_options"]
+        self.assertEqual(http_options.timeout, 45000)
 
     @patch('komitto.llm.gemini_client.genai')
     def test_gemini_client_stream(self, mock_genai):
@@ -319,7 +349,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         mock_instance.messages.create.return_value = mock_message
 
         # Test
-        config = {"api_key": "test_key", "model": "claude-3"}
+        config = {"api_key": "test_key", "model": "claude-sonnet-4-6"}
         client = AnthropicClient(config)
         msg, usage = client.generate_commit_message("prompt")
 
@@ -330,6 +360,14 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
             "completion_tokens": 20,
             "total_tokens": 30
         })
+
+    @patch('komitto.llm.anthropic_client.anthropic.AsyncAnthropic')
+    @patch('komitto.llm.anthropic_client.anthropic.Anthropic')
+    def test_anthropic_client_uses_configured_timeout(self, mock_anthropic, mock_async_anthropic):
+        AnthropicClient({"api_key": "test_key", "model": "claude-sonnet-4-6", "timeout": 45})
+
+        self.assertEqual(mock_anthropic.call_args.kwargs["timeout"], 45)
+        self.assertEqual(mock_async_anthropic.call_args.kwargs["timeout"], 45)
 
     def test_create_llm_client_unknown_provider(self):
         """未知のプロバイダが指定された場合に ValueError が発生することをテスト"""
@@ -361,7 +399,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(ValueError) as ctx:
                 # config に api_key がない場合
-                AnthropicClient({"model": "claude-3"})
+                AnthropicClient({"model": "claude-sonnet-4-6"})
             self.assertIn("API key is missing", str(ctx.exception))
 
     @patch('komitto.llm.openai_client.OpenAI')
@@ -372,7 +410,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         # createが例外を投げるように設定
         mock_instance.chat.completions.create.side_effect = Exception("API connection timeout")
 
-        config = {"api_key": "test_key", "model": "gpt-4"}
+        config = {"api_key": "test_key", "model": "gpt-5.4-mini"}
         client = OpenAIClient(config)
         with self.assertRaises(Exception) as ctx:
             client.generate_commit_message("prompt")
@@ -402,7 +440,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         
         mock_stream_ctx.__aenter__.return_value.get_final_message.return_value = mock_final_msg
 
-        config = {"api_key": "test_key", "model": "claude-3"}
+        config = {"api_key": "test_key", "model": "claude-sonnet-4-6"}
         client = AnthropicClient(config)
         chunks = []
         async for chunk in client.stream_commit_message_async("prompt"):
@@ -434,4 +472,3 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

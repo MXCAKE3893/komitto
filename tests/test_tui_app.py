@@ -53,7 +53,7 @@ async def test_komitto_app_run_single(mock_llm_client):
     config = {
         "llm": {
             "provider": "openai",
-            "model": "gpt-4"
+            "model": "gpt-5.4-mini"
         }
     }
     app = KomittoApp(config=config, prompt="test prompt")
@@ -98,6 +98,27 @@ async def test_komitto_app_cancellation(mock_llm_client):
         await pilot.pause()
         
         # キャンセル時でも aclose が呼ばれることを確認
+        mock_llm_client.aclose.assert_called_once()
+
+@pytest.mark.anyio
+async def test_komitto_app_generation_error_does_not_enter_review(mock_llm_client):
+    """生成エラー時に空メッセージのレビュー状態へ進まないことをテスト"""
+    config = {"llm": {"provider": "openai"}}
+    app = KomittoApp(config=config, prompt="test prompt")
+    app.suspend = dummy_suspend
+
+    async def mock_stream_error(*args, **kwargs):
+        raise TimeoutError("model load timed out")
+        yield "", None, None
+
+    mock_llm_client.stream_commit_message_async.side_effect = mock_stream_error
+
+    async with app.run_test() as pilot:
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+        assert app.current_state == "error"
+        assert app.generated_text == ""
         mock_llm_client.aclose.assert_called_once()
 
 @pytest.mark.anyio

@@ -91,6 +91,7 @@ class KomittoApp(App):
     STATE_GENERATING = "generating"
     STATE_REVIEW = "review"
     STATE_COMPARE = "compare"
+    STATE_ERROR = "error"
 
     current_state = reactive(STATE_GENERATING)
     generated_text = reactive("")
@@ -250,6 +251,15 @@ class KomittoApp(App):
                 status_label.add_class("status-ready")
             except: pass
 
+        elif state == self.STATE_ERROR:
+            if not self.is_compare_mode:
+                try:
+                    status_label = self.query_one("#status-label")
+                    status_label.update("❌ Generation failed")
+                    status_label.remove_class("status-generating")
+                    status_label.add_class("status-ready")
+                except: pass
+
     @work(exclusive=True)
     async def generate_message(self) -> None:
         """Generate commit message in background (Single mode)."""
@@ -345,7 +355,8 @@ class KomittoApp(App):
             raise
         except Exception as e:
             self.notify(f"Error: {e}", severity="error")
-            self.current_state = self.STATE_REVIEW
+            self.generated_text = ""
+            self.current_state = self.STATE_ERROR
         finally:
             await client.aclose()
 

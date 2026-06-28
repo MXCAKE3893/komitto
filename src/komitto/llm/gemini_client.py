@@ -1,6 +1,7 @@
 import os
 from typing import Union
 from google import genai
+from google.genai import types
 from .base import LLMClient
 
 class GeminiClient(LLMClient):
@@ -9,7 +10,11 @@ class GeminiClient(LLMClient):
         if not api_key:
             raise ValueError("Gemini API key is missing. Set it in komitto.toml or environment variable 'GEMINI_API_KEY'.")
         
-        self.client = genai.Client(api_key=api_key)
+        timeout = config.get("timeout", 300.0)
+        self.client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=int(timeout * 1000)),
+        )
         self.model_name = config.get("model", "gemini-3.5-flash")
 
     def _prepare_messages(self, prompt: Union[str, list]):

@@ -16,13 +16,13 @@ class OpenAIClient(LLMClient):
         common_kwargs = {
             "api_key": api_key or "dummy",
             "base_url": base_url,
-            "timeout": config.get("timeout", 30.0),
+            "timeout": config.get("timeout", 300.0),
             "max_retries": config.get("max_retries", 2),
         }
 
         self.client = OpenAI(**common_kwargs)
         self.async_client = AsyncOpenAI(**common_kwargs)
-        self.model = config.get("model", "gpt-4o-mini")
+        self.model = config.get("model", "gpt-5.4-mini")
 
     def _prepare_messages(self, prompt: Union[str, list]):
         if isinstance(prompt, str):

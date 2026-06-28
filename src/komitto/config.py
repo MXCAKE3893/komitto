@@ -136,9 +136,9 @@ system = \"\"\"
 # # history_limit = 5 # Number of past commits to include / プロンプトに含める過去のコミット数
 # 
 # # Cost settings (USD per 1M tokens) / コスト設定（100万トークンあたりのUSD）
-# # Example: gpt-5.4-mini-2024-08-06 (Input: $2.50, Output: $10.00)
-# # input_cost_per_million = 2.50
-# # output_cost_per_million = 10.00
+# # Example: gpt-5.4-mini (Input: $0.75, Output: $4.50)
+# # input_cost_per_million = 0.75
+# # output_cost_per_million = 4.50
 
 [git]
 # Files to exclude from the diff (glob patterns)
@@ -160,13 +160,13 @@ exclude = [
 # [templates.simple]
 # system = "Summarize changes in one line."
 
-# [models.gpt4]
+# [models.gpt54mini]
 # provider = "openai"
 # model = "gpt-5.4-mini"
 
 # [contexts.release]
 # template = "simple"
-# model = "gpt4"
+# model = "gpt54mini"
 # # usage: komitto -c release
 """
     try:
@@ -239,9 +239,9 @@ system = \"\"\"
 # # history_limit = 5 # Number of past commits to include / プロンプトに含める過去のコミット数
 # 
 # # Cost settings (USD per 1M tokens) / コスト設定（100万トークンあたりのUSD）
-# # Example: gpt-5.4-mini-2024-08-06 (Input: $2.50, Output: $10.00)
-# # input_cost_per_million = 2.50
-# # output_cost_per_million = 10.00
+# # Example: gpt-5.4-mini (Input: $0.75, Output: $4.50)
+# # input_cost_per_million = 0.75
+# # output_cost_per_million = 4.50
 
 [git]
 # Files to exclude from the diff (glob patterns)
@@ -263,13 +263,13 @@ exclude = [
 # [templates.simple]
 # system = "Summarize changes in one line."
 
-# [models.gpt4]
+# [models.gpt54mini]
 # provider = "openai"
 # model = "gpt-5.4-mini"
 
 # [contexts.release]
 # template = "simple"
-# model = "gpt4"
+# model = "gpt54mini"
 # # usage: komitto -c release
 """
             with open(target_file, "w", encoding="utf-8") as f:

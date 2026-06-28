@@ -172,13 +172,13 @@ exclude = [
 # [templates.simple]
 # system = "Summarize changes in one line."
 
-# [models.gpt4]
+# [models.gpt54mini]
 # provider = "openai"
 # model = "gpt-5.4-mini"
 
 # [contexts.release]
 # template = "simple"
-# model = "gpt4"
+# model = "gpt54mini"
 ```
 
 ### Using Ollama/LM Studio
