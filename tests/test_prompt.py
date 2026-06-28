@@ -97,6 +97,52 @@ diff --git a/b.txt b/b.txt
     assert 'b_old' not in parts[0]
     assert 'b_old' in parts[1]
 
+def test_parse_diff_to_xml_binary_addition():
+    """バイナリファイル追加は内容を含めず、拡張子と変更種別のみを出力すること"""
+    diff = """diff --git assets/logo.png assets/logo.png
+new file mode 100644
+index 0000000..abc1234
+Binary files /dev/null and assets/logo.png differ
+"""
+    xml = parse_diff_to_xml(diff)
+
+    assert '<file path="assets/logo.png" binary="true" extension=".png" type="addition">' in xml
+    assert '<chunk' not in xml
+    assert 'Binary files' not in xml
+
+def test_parse_diff_to_xml_binary_modification_from_git_binary_patch():
+    """GIT binary patch形式の差分はパッチ本文を含めず、バイナリとして扱うこと"""
+    diff = """diff --git videos/demo.mp4 videos/demo.mp4
+index abc1234..def5678 100644
+GIT binary patch
+literal 12
+TcmZQzU|?VbVqj
+"""
+    xml = parse_diff_to_xml(diff)
+
+    assert '<file path="videos/demo.mp4" binary="true" extension=".mp4" type="modification">' in xml
+    assert 'literal 12' not in xml
+    assert 'TcmZQzU' not in xml
+
+def test_parse_diff_to_xml_mixed_text_and_binary_files():
+    """通常コード差分とバイナリ差分が混在しても、それぞれ正しく表現されること"""
+    diff = """diff --git src/main.py src/main.py
+@@ -1,1 +1,1 @@
+-old
++new
+diff --git assets/logo.png assets/logo.png
+new file mode 100644
+index 0000000..abc1234
+Binary files /dev/null and assets/logo.png differ
+"""
+    xml = parse_diff_to_xml(diff)
+
+    assert '<file path="src/main.py">' in xml
+    assert '<type>modification</type>' in xml
+    assert '<original>\nold\n      </original>' in xml
+    assert '<modified>\nnew\n      </modified>' in xml
+    assert '<file path="assets/logo.png" binary="true" extension=".png" type="addition">' in xml
+
 def test_build_prompt_full_parameters():
     """すべてのパラメータ（logs, context）が渡された場合、すべてのセクションが結合されたプロンプトが生成されることをテスト"""
     system_prompt = "You are a commit assistant."
@@ -200,4 +246,3 @@ def test_clean_markdown_code_block_empty():
     """空文字や None の場合はそのまま返されること"""
     assert clean_markdown_code_block("") == ""
     assert clean_markdown_code_block(None) is None
-

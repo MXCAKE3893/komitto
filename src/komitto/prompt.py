@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 from xml.sax.saxutils import escape
 from typing import Optional
 from .i18n import t
@@ -12,6 +13,9 @@ def parse_diff_to_xml(diff_content):
     output.append("<changeset>")
     
     current_file = None
+    current_file_index = None
+    current_change_type = "modification"
+    current_binary = False
     current_scope = ""
     in_chunk = False
     added_lines = []
@@ -46,16 +50,46 @@ def parse_diff_to_xml(diff_content):
         removed_lines.clear()
         in_chunk = False
 
+    def flush_file():
+        nonlocal current_file, current_file_index, current_binary, current_change_type
+        flush_chunk()
+        if not current_file:
+            return
+
+        if current_binary and current_file_index is not None:
+            extension = Path(current_file).suffix
+            output[current_file_index] = (
+                f'  <file path="{current_file}" binary="true" '
+                f'extension="{escape(extension)}" type="{current_change_type}">'
+            )
+
+        output.append("  </file>")
+        current_file = None
+        current_file_index = None
+        current_binary = False
+        current_change_type = "modification"
+
     for line in diff_lines:
         if line.startswith("diff --git"):
-            flush_chunk()
-            if current_file:
-                output.append("  </file>")
-            
+            flush_file()
+             
             match = re.search(r"diff --git (.*?) (.*)", line)
             file_path = match.group(2) if match else "unknown"
             current_file = file_path
+            current_file_index = len(output)
             output.append(f'  <file path="{file_path}">')
+            continue
+
+        if current_file and line.startswith("new file mode"):
+            current_change_type = "addition"
+            continue
+
+        if current_file and line.startswith("deleted file mode"):
+            current_change_type = "deletion"
+            continue
+
+        if current_file and (line.startswith("Binary files ") or line.startswith("GIT binary patch")):
+            current_binary = True
             continue
 
         if line.startswith("@@"):
@@ -71,9 +105,7 @@ def parse_diff_to_xml(diff_content):
             elif line.startswith("+") and not line.startswith("+++"):
                 added_lines.append(line[1:])
 
-    flush_chunk()
-    if current_file:
-        output.append("  </file>")
+    flush_file()
     output.append("</changeset>")
     
     return "\n".join(output)
