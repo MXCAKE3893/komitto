@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+from typing import Optional
 from urllib.parse import urlparse
 
 try:
@@ -34,7 +35,7 @@ def get_local_config_path() -> Path:
     return Path.cwd() / "komitto.json"
 
 
-def _run_git(*args: str) -> str | None:
+def _run_git(*args: str) -> Optional[str]:
     try:
         result = subprocess.run(
             ["git", *args], capture_output=True, text=True, encoding="utf-8", check=True
