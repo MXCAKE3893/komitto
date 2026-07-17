@@ -17,11 +17,6 @@ def learn_style_from_history(config, limit=20):
     """
     コミット履歴を分析し、スタイルガイド（システムプロンプト案）を生成する
     """
-    from pathlib import Path
-    if not Path("komitto.toml").exists():
-        console.print(t("learn.no_config_file"), style="yellow")
-        return
-    
     llm_config = config.get("llm", {})
     if not llm_config or not llm_config.get("provider"):
         console.print(t("main.api_error"), style="yellow")
@@ -124,7 +119,7 @@ The prompt itself should be written in the primary language of the commit histor
                     console.print(f"[#98c379]{t('learn.auto_init_created', message)}[/#98c379]")
                 else:
                     console.print(f"[#98c379]{t('learn.auto_init_backup_created', message)}[/#98c379]")
-                    console.print(f"[#98c379]{t('learn.auto_init_updated', 'komitto.toml')}[/#98c379]")
+                    console.print(f"[#98c379]{t('learn.auto_init_updated', 'komitto.json')}[/#98c379]")
             else:
                 console.print(f"[#e06c75]{t('learn.auto_init_failed', message)}[/#e06c75]")
         else:

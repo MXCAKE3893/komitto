@@ -5,9 +5,10 @@ from .base import LLMClient
 
 class AnthropicClient(LLMClient):
     def __init__(self, config: dict):
-        api_key = config.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")
+        api_key_env = config.get("api_key_env", "ANTHROPIC_API_KEY")
+        api_key = os.environ.get(api_key_env)
         if not api_key:
-            raise ValueError("Anthropic API key is missing. Set it in komitto.toml or environment variable 'ANTHROPIC_API_KEY'.")
+            raise ValueError(f"Anthropic API key is missing. Set {api_key_env} in ~/.config/komitto/.env or the process environment.")
         
         timeout = config.get("timeout", 300.0)
         self.client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
