@@ -14,7 +14,7 @@
 
 - ステージされた変更（`git diff --staged`）を解析し、オプションで複数のコンテキストを比較可能。
 - 変更内容を、LLMが理解しやすい構造化されたXML/JSON形式に変換。
-- **LLM API連携**: `komitto.toml` の設定に基づき、OpenAI, Gemini, Anthropic, Ollama などのプロバイダーのAPIを直接呼び出し可能。
+- **LLM API連携**: `komitto.json` の設定に基づき、OpenAI, Gemini, Anthropic, Ollama などのプロバイダーのAPIを直接呼び出し可能。
 - **思考プロセスの可視化**: LLMの思考プロセス（`<think>`タグなど）をリアルタイムにストリーミング表示。
 - **コンテキスト理解**: プロジェクトの文脈やスタイルを維持するため、直近のコミットログを自動的にプロンプトに含めます。
 - **外部ファイル参照**: プロンプトのコンテキストに外部ファイルの内容を簡単に参照・埋め込むことが可能。
@@ -53,7 +53,7 @@ komittoはOSのロケールに基づいて言語を自動検出します。サ�
 
 ### AI自動生成モード（推奨）
 
-`komitto.toml` に `[llm]` の設定（プロバイダーやモデルなど）を追加すると、`komitto` は直接LLMと通信します。推論プロセス（`<think>`等）とメッセージの生成をリアルタイムでストリーミング表示し、完了後にインタラクティブな確認プロンプトを表示します。
+`komitto.json` に `llm` の設定（プロバイダーやモデルなど）を追加すると、`komitto` は直接LLMと通信します。推論プロセス（`<think>`等）とメッセージの生成をリアルタイムでストリーミング表示し、完了後にインタラクティブな確認プロンプトを表示します。
 
 ```bash
 komitto
@@ -117,7 +117,7 @@ komitto learn
 1. リポジトリから直近のコミットメッセージを読み込み
 2. 使用されている言語、フォーマット、規約を分析
 3. スタイルに合わせたカスタムシステムプロンプトを生成
-4. オプションで `komitto.toml` を自動的に更新
+4. このリポジトリ用の Markdown システムプロンプトを作成または更新
 
 ### CLIオプション
 
@@ -131,70 +131,67 @@ komitto learn
 
 ## 設定ファイルによるカスタマイズ
 
-以下を実行して、プロジェクト固有の設定を作成します:
+以下を実行すると、プロジェクト設定とリポジトリ別プロンプトファイルを作成します:
 
 ```bash
 komitto init
 ```
 
-設定ファイルは以下の順序で検索されます（後の方が優先されます）:
+設定は次の順序で読み込まれます（後の値が前の値を上書きします）:
 
-1. ユーザー設定ディレクトリ (`%APPDATA%\komitto\config.toml` など)
-2. プロジェクトディレクトリ `./komitto.toml`
+1. 組み込みの既定値
+2. グローバル JSON: `~/.config/komitto/config.json`
+3. ローカル JSON: `./komitto.json`
+4. リポジトリ別プロンプト: `~/.config/komitto/repos/<repository-sha256>/system.md`
 
-### `komitto.toml` のサンプル
+プロンプトのパスは正規化した Git の `origin` URL（origin がない場合は Git top-level ディレクトリ）から算出されるため、リポジトリごとに別の `system.md` が使用されます。`komitto learn` はこの Markdown ファイルを更新し、必要に応じて `./komitto.json` を作成または更新します。
 
-```toml
-[prompt]
-system = """
-あなたはConventional Commitsに従ったセマンティックなコミットメッセージを作成する役立つアシスタントです。
-以下のdiffを分析し、件名行（50文字以内）とオプションの本文のみを出力してください。
-"""
+### `komitto.json` のサンプル
 
-[context]
-# プロンプトに必ず含める参考情報ファイル
-# files = ["README.md"]
-
-[llm]
-provider = "openai" # "openai", "gemini", "anthropic"
-model = "gpt-5.4-mini"
-# api_key = "sk-..." # 環境変数を使用する場合は省略可能
-# base_url = "http://localhost:11434/v1" # Ollamaなどの場合
-# history_limit = 5
-# timeout = 300 # リクエストタイムアウト秒数（既定: 300）
-
-[git]
-# 差分から除外するファイル（globパターン）
-exclude = [
-    "package-lock.json",
-    "yarn.lock",
-    "pnpm-lock.yaml",
-    "poetry.lock",
-    "Cargo.lock",
-    "go.sum",
-    "*.lock"
-]
-
-# --- Advanced Settings (Templates & Contexts) ---
-# [templates.simple]
-# system = "変更内容を1行で要約してください。"
-
-# [models.gpt54mini]
-# provider = "openai"
-# model = "gpt-5.4-mini"
-
-# [contexts.release]
-# template = "simple"
-# model = "gpt54mini"
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/MXCAKE3893/komitto/main/schema/komitto-config.schema.json",
+  "prompt": { "source": "repository" },
+  "context": { "files": ["README.md"] },
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "base_url": "http://localhost:11434/v1"
+  },
+  "git": { "exclude": ["package-lock.json", "*.lock"] },
+  "templates": { "simple": { "system": "変更内容を1行で要約してください。" } },
+  "models": { "gpt54mini": { "provider": "openai", "model": "gpt-5.4-mini" } },
+  "contexts": { "release": { "template": "simple", "model": "gpt54mini" } }
+}
 ```
+
+`$schema` により、対応エディタで補完と検証が有効になります。公開スキーマは [`schema/komitto-config.schema.json`](schema/komitto-config.schema.json) にあり、`main` の URL はインストール済み形式の最新定義を参照します。
+
+### 機密情報とプロンプト本文
+
+API キーやプロンプト本文を JSON に保存しないでください。`komitto` は、すでにプロセス環境に設定された値を上書きせずに `~/.config/komitto/.env` を読み込みます。`komitto init` は利用可能な変数名を示す `~/.config/komitto/.env.example` を作成します:
+
+```dotenv
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+ANTHROPIC_API_KEY=
+```
+
+`llm.api_key_env` を指定すると、任意の環境変数名を使用できます（例: `"api_key_env": "OLLAMA_API_KEY"`）。未指定の場合は、OpenAI は `OPENAI_API_KEY`、Gemini は `GEMINI_API_KEY` または `GOOGLE_API_KEY`、Anthropic は `ANTHROPIC_API_KEY` を使用します。旧来の `config.toml` と `komitto.toml` は初回読み込み時に自動移行され、`api_key` は移行先から除外されます。
 
 ### Ollama/LM Studio の使用
 
-```toml
-[llm]
-provider = "openai"        # 互換レイヤーのためにopenaiを使用します
-model = "qwen3"
-base_url = "http://localhost:11434/v1"
+OpenAI 互換プロバイダーと URL を JSON で指定します:
+
+```json
+{
+  "llm": {
+    "provider": "openai",
+    "model": "qwen3",
+    "base_url": "http://localhost:11434/v1",
+    "api_key_env": "OLLAMA_API_KEY"
+  }
+}
 ```
 
 ## 仕組み（内部フロー）

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/MXCAKE3893/komitto/main/schema/komitto-config.schema.json",
+  "title": "komitto configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string", "format": "uri" },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "enum": ["repository"], "default": "repository" }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "files": { "type": "array", "items": { "type": "string" }, "default": [] } }
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "exclude": { "type": "array", "items": { "type": "string" } } }
+    },
+    "llm": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string", "enum": ["openai", "gemini", "anthropic"] },
+        "model": { "type": "string" },
+        "api_key_env": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "base_url": { "type": "string", "format": "uri" },
+        "history_limit": { "type": "integer", "minimum": 0 },
+        "timeout": { "type": "number", "exclusiveMinimum": 0 },
+        "max_retries": { "type": "integer", "minimum": 0 },
+        "input_cost_per_million": { "type": "number", "minimum": 0 },
+        "output_cost_per_million": { "type": "number", "minimum": 0 }
+      },
+      "not": { "required": ["api_key"] }
+    },
+    "templates": {
+      "type": "object",
+      "additionalProperties": { "type": "object", "not": { "required": ["api_key"] } }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": { "type": "object", "not": { "required": ["api_key"] } }
+    },
+    "contexts": {
+      "type": "object",
+      "additionalProperties": { "type": "object", "not": { "required": ["api_key"] } }
+    }
+  }
+}

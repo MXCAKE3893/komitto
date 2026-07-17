@@ -27,7 +27,7 @@
         "instruction_comment": "# --- komitto interactive mode ---\n# Please edit the commit message.\n# Lines starting with '#' will be ignored."
     },
     "config": {
-        "init_exists": "⚠️ komitto.toml already exists in the current directory.",
+        "init_exists": "⚠️ komitto.json already exists in the current directory.",
         "init_created": "✅ Created {0}",
         "init_failed": "Error: Failed to create {0}: {1}",
         "load_warning": "Warning: Failed to load config from {0}: {1}",
@@ -42,17 +42,16 @@
         "user_context_instruction": "User Note: {0}"
     },
     "learn": {
-        "no_config_file": "⚠️  komitto.toml not found. Please run 'komitto init' first to set up LLM configuration.",
         "no_history": "Warning: No commit history found (or not a git repo). Cannot learn style.",
         "analyzing": "Analyzing {0} recent commits...",
         "analyzing_status": "Asking AI to analyze style...",
         "suggested_prompt_title": "Suggested System Prompt",
         "apply_instruction_title": "To apply this style:",
-        "apply_instruction_step0": "0. Run 'komitto init' if you don't have a config file yet.",
-        "apply_instruction_step1": "1. Open 'komitto.toml'",
-        "apply_instruction_step2": "2. Update the 'system' key under '[prompt]' section.",
-        "apply_instruction_note": "Note: This command does not modify the config file automatically for safety reasons.",
-        "auto_init_prompt": "💾 Apply this prompt to komitto.toml?",
+        "apply_instruction_step0": "0. Run 'komitto init' to create the repository prompt file.",
+        "apply_instruction_step1": "1. Open the repository's system.md under ~/.config/komitto/repos/",
+        "apply_instruction_step2": "2. Replace its contents with the suggested prompt.",
+        "apply_instruction_note": "Note: This command does not modify files automatically for safety reasons.",
+        "auto_init_prompt": "💾 Apply this prompt to the repository prompt file?",
         "auto_init_yes": "✅ Applying configuration...",
         "auto_init_no": "⚠️  Skipped automatic configuration.",
         "auto_init_created": "✅ Created {0} with the generated prompt.",

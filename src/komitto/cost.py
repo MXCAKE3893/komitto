@@ -7,7 +7,7 @@ def calculate_cost(llm_config: dict, prompt_tokens: int, completion_tokens: int)
     トークン使用量からコストを計算する
     
     Args:
-        llm_config: LLM設定（komitto.tomlの[llm]セクション）
+        llm_config: LLM設定（komitto.jsonのllmセクション）
         prompt_tokens: 入力トークン数
         completion_tokens: 出力トークン数
     

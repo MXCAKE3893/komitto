@@ -6,9 +6,13 @@ from .base import LLMClient
 
 class GeminiClient(LLMClient):
     def __init__(self, config: dict):
-        api_key = config.get("api_key") or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        api_key_env = config.get("api_key_env")
+        api_key = os.environ.get(api_key_env) if api_key_env else (
+            os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        )
         if not api_key:
-            raise ValueError("Gemini API key is missing. Set it in komitto.toml or environment variable 'GEMINI_API_KEY'.")
+            expected = api_key_env or "GEMINI_API_KEY or GOOGLE_API_KEY"
+            raise ValueError(f"Gemini API key is missing. Set {expected} in ~/.config/komitto/.env or the process environment.")
         
         timeout = config.get("timeout", 300.0)
         self.client = genai.Client(

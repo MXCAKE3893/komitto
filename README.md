@@ -14,7 +14,7 @@ A CLI tool that analyzes `git diff` and calls LLM APIs (OpenAI, Gemini, Anthropi
 
 - Analyzes staged changes (`git diff --staged`) and optionally compares multiple contexts.
 - Converts change details into a structured XML/JSON format that LLMs can understand.
-- **LLM API Integration**: Directly calls APIs from providers like OpenAI, Gemini, Anthropic, Ollama, etc., using settings defined in `komitto.toml`.
+- **LLM API Integration**: Directly calls APIs from providers like OpenAI, Gemini, Anthropic, Ollama, etc., using settings defined in `komitto.json`.
 - **Reasoning Process Visualization**: Streams and visualizes the LLM's reasoning process (e.g., `<think>` tags) in real-time.
 - **Contextual Understanding**: Automatically includes recent commit logs in the prompt to preserve project context and style.
 - **External File References**: Easily reference and embed the contents of external files into your prompt context.
@@ -52,7 +52,7 @@ Set `KOMITTO_LANG=ja` to force Japanese.
 
 ### AI-Automated Generation (Recommended)
 
-When you configure `provider`, `model`, and other API settings in `komitto.toml`, running `komitto` will directly interact with the LLM. It streams the reasoning process and the commit message generation in real-time, then provides an interactive prompt.
+When you configure `provider`, `model`, and other API settings in `komitto.json`, running `komitto` will directly interact with the LLM. It streams the reasoning process and the commit message generation in real-time, then provides an interactive prompt.
 
 ```bash
 komitto
@@ -115,7 +115,7 @@ This command:
 1. Reads recent commit messages from your repository
 2. Analyzes the language, format, and conventions used
 3. Generates a custom system prompt matching your style
-4. Optionally updates `komitto.toml` automatically
+4. Creates or updates this repository's Markdown system prompt automatically
 
 ### CLI Options
 
@@ -129,70 +129,67 @@ This command:
 
 ## Customization via Configuration File
 
-Create a project-specific configuration with:
+Create project configuration and the repository-specific prompt file with:
 
 ```bash
 komitto init
 ```
 
-Configuration files are looked up in this order (later overrides earlier):
+Configuration is read in this order (later values override earlier values):
 
-1. User config directory (`%APPDATA%\komitto\config.toml`, etc.)
-2. Project directory `./komitto.toml`
+1. Built-in defaults
+2. Global JSON: `~/.config/komitto/config.json`
+3. Local JSON: `./komitto.json`
+4. Repository prompt: `~/.config/komitto/repos/<repository-sha256>/system.md`
 
-### Sample `komitto.toml`
+The prompt path is derived from the normalized Git `origin` URL (or the Git top-level directory if no origin exists), so every repository gets a separate `system.md`. `komitto learn` updates that Markdown file and creates or updates `./komitto.json` when needed.
 
-```toml
-[prompt]
-system = """
-You are a helpful assistant that produces semantic commit messages following Conventional Commits.
-Analyze the diff below and output only the subject line (<=50 chars) and an optional body.
-"""
+### Sample `komitto.json`
 
-[context]
-# Reference files to always include in the prompt
-# files = ["README.md"]
-
-[llm]
-provider = "openai" # "openai", "gemini", "anthropic"
-model = "gpt-5.4-mini"
-# api_key = "sk-..." # Optional if environment variable is set
-# base_url = "http://localhost:11434/v1" # For Ollama etc.
-# history_limit = 5
-# timeout = 300 # Request timeout in seconds (default: 300)
-
-[git]
-# Files to exclude from the diff (glob patterns)
-exclude = [
-    "package-lock.json",
-    "yarn.lock",
-    "pnpm-lock.yaml",
-    "poetry.lock",
-    "Cargo.lock",
-    "go.sum",
-    "*.lock"
-]
-
-# --- Advanced Settings (Templates & Contexts) ---
-# [templates.simple]
-# system = "Summarize changes in one line."
-
-# [models.gpt54mini]
-# provider = "openai"
-# model = "gpt-5.4-mini"
-
-# [contexts.release]
-# template = "simple"
-# model = "gpt54mini"
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/MXCAKE3893/komitto/main/schema/komitto-config.schema.json",
+  "prompt": { "source": "repository" },
+  "context": { "files": ["README.md"] },
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "base_url": "http://localhost:11434/v1"
+  },
+  "git": { "exclude": ["package-lock.json", "*.lock"] },
+  "templates": { "simple": { "system": "Summarize changes in one line." } },
+  "models": { "gpt54mini": { "provider": "openai", "model": "gpt-5.4-mini" } },
+  "contexts": { "release": { "template": "simple", "model": "gpt54mini" } }
+}
 ```
+
+`$schema` enables completion and validation in compatible editors. The published schema is [`schema/komitto-config.schema.json`](schema/komitto-config.schema.json); the `main` URL always follows the installed configuration format.
+
+### Secrets and prompt content
+
+Do not put API keys or prompt bodies in JSON. `komitto` loads `~/.config/komitto/.env` without replacing variables already supplied by the process environment. `komitto init` creates `~/.config/komitto/.env.example` with supported names:
+
+```dotenv
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+ANTHROPIC_API_KEY=
+```
+
+Set `llm.api_key_env` to use any environment variable name (for example, `"api_key_env": "OLLAMA_API_KEY"`). If omitted, OpenAI uses `OPENAI_API_KEY`, Gemini uses `GEMINI_API_KEY` or `GOOGLE_API_KEY`, and Anthropic uses `ANTHROPIC_API_KEY`. Legacy `config.toml` and `komitto.toml` are migrated automatically on first load; `api_key` is omitted during migration.
 
 ### Using Ollama/LM Studio
 
-```toml
-[llm]
-provider = "openai"        # still used for compatibility layer
-model = "qwen3"
-base_url = "http://localhost:11434/v1"
+Use the OpenAI-compatible provider and URL in JSON:
+
+```json
+{
+  "llm": {
+    "provider": "openai",
+    "model": "qwen3",
+    "base_url": "http://localhost:11434/v1",
+    "api_key_env": "OLLAMA_API_KEY"
+  }
+}
 ```
 
 ## How It Works (Internal Flow)

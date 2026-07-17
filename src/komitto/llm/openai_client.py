@@ -5,7 +5,8 @@ from .base import LLMClient
 
 class OpenAIClient(LLMClient):
     def __init__(self, config: dict):
-        api_key = config.get("api_key") or os.environ.get("OPENAI_API_KEY")
+        api_key_env = config.get("api_key_env", "OPENAI_API_KEY")
+        api_key = os.environ.get(api_key_env)
         base_url = config.get("base_url")
         
         if not api_key and not base_url: 

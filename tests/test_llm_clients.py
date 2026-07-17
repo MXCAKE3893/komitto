@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import MagicMock, patch, AsyncMock
 
@@ -6,6 +7,19 @@ from komitto.llm.gemini_client import GeminiClient
 from komitto.llm.anthropic_client import AnthropicClient
 
 class TestLLMClients(unittest.IsolatedAsyncioTestCase):
+
+    def setUp(self):
+        self.environment = patch.dict(
+            os.environ,
+            {
+                "OPENAI_API_KEY": "test-openai-key",
+                "GEMINI_API_KEY": "test-gemini-key",
+                "ANTHROPIC_API_KEY": "test-anthropic-key",
+            },
+            clear=False,
+        )
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
 
     def test_base_llm_client(self):
         from komitto.llm.base import LLMClient
@@ -37,7 +51,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         mock_instance.chat.completions.create.return_value = mock_response
 
         # Test
-        config = {"api_key": "test_key", "model": "gpt-5.4-mini"}
+        config = {"model": "gpt-5.4-mini"}
         client = OpenAIClient(config)
         msg, usage = client.generate_commit_message("prompt")
 
@@ -51,8 +65,17 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
 
     @patch('komitto.llm.openai_client.AsyncOpenAI')
     @patch('komitto.llm.openai_client.OpenAI')
+    def test_openai_client_uses_custom_api_key_environment(self, mock_openai, mock_async_openai):
+        with patch.dict(os.environ, {"OLLAMA_API_KEY": "ollama-key"}, clear=False):
+            OpenAIClient({"api_key_env": "OLLAMA_API_KEY"})
+
+        self.assertEqual(mock_openai.call_args.kwargs["api_key"], "ollama-key")
+        self.assertEqual(mock_async_openai.call_args.kwargs["api_key"], "ollama-key")
+
+    @patch('komitto.llm.openai_client.AsyncOpenAI')
+    @patch('komitto.llm.openai_client.OpenAI')
     def test_openai_client_uses_longer_default_timeout(self, mock_openai, mock_async_openai):
-        config = {"api_key": "test_key", "model": "gpt-5.4-mini"}
+        config = {"model": "gpt-5.4-mini"}
 
         OpenAIClient(config)
 
@@ -64,7 +87,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
     @patch('komitto.llm.openai_client.AsyncOpenAI')
     @patch('komitto.llm.openai_client.OpenAI')
     def test_openai_client_respects_configured_timeout(self, mock_openai, mock_async_openai):
-        config = {"api_key": "test_key", "model": "gpt-5.4-mini", "base_url": "http://localhost:8000/v1", "timeout": 45}
+        config = {"model": "gpt-5.4-mini", "base_url": "http://localhost:8000/v1", "timeout": 45}
 
         OpenAIClient(config)
 
@@ -108,7 +131,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         mock_instance.chat.completions.create.return_value = iter([chunk0, chunk1, chunk2, chunk3, chunk4])
 
         # Test
-        config = {"api_key": "test_key", "model": "gpt-5.4-mini"}
+        config = {"model": "gpt-5.4-mini"}
         client = OpenAIClient(config)
         
         chunks = list(client.stream_commit_message("prompt"))
@@ -165,7 +188,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         future.set_result(mock_stream())
         mock_instance.chat.completions.create.return_value = future
 
-        config = {"api_key": "test_key", "model": "gpt-5.4-mini"}
+        config = {"model": "gpt-5.4-mini"}
         client = OpenAIClient(config)
         
         chunks = []
@@ -200,7 +223,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         future.set_result(None)
         mock_instance.close.return_value = future
         
-        config = {"api_key": "test"}
+        config = {}
         client = OpenAIClient(config)
         await client.aclose()
         mock_instance.close.assert_called_once()
@@ -220,7 +243,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         mock_client.models.generate_content.return_value = mock_response
 
         # Test
-        config = {"api_key": "test_key", "model": "gemini-3.5-flash"}
+        config = {"model": "gemini-3.5-flash"}
         client = GeminiClient(config)
         msg, usage = client.generate_commit_message("prompt")
 
@@ -236,8 +259,15 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         })
 
     @patch('komitto.llm.gemini_client.genai')
+    def test_gemini_client_uses_custom_api_key_environment(self, mock_genai):
+        with patch.dict(os.environ, {"CUSTOM_GEMINI_KEY": "gemini-key"}, clear=False):
+            GeminiClient({"api_key_env": "CUSTOM_GEMINI_KEY"})
+
+        self.assertEqual(mock_genai.Client.call_args.kwargs["api_key"], "gemini-key")
+
+    @patch('komitto.llm.gemini_client.genai')
     def test_gemini_client_uses_configured_timeout(self, mock_genai):
-        GeminiClient({"api_key": "test_key", "model": "gemini-3.5-flash", "timeout": 45})
+        GeminiClient({"model": "gemini-3.5-flash", "timeout": 45})
 
         mock_genai.Client.assert_called_once()
         http_options = mock_genai.Client.call_args.kwargs["http_options"]
@@ -265,7 +295,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         mock_client.models.generate_content_stream.return_value = iter([chunk1, chunk2])
 
         # Test
-        config = {"api_key": "test_key", "model": "gemini-3.5-flash"}
+        config = {"model": "gemini-3.5-flash"}
         client = GeminiClient(config)
         chunks = list(client.stream_commit_message("prompt"))
         
@@ -305,7 +335,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         future.set_result(mock_stream())
         mock_client.aio.models.generate_content_stream.return_value = future
 
-        config = {"api_key": "test_key", "model": "gemini-3.5-flash"}
+        config = {"model": "gemini-3.5-flash"}
         client = GeminiClient(config)
         chunks = []
         async for chunk in client.stream_commit_message_async("prompt"):
@@ -330,7 +360,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         future.set_result(None)
         mock_client.aio.close.return_value = future
         
-        config = {"api_key": "test"}
+        config = {}
         client = GeminiClient(config)
         await client.aclose()
         mock_client.aio.close.assert_called_once()
@@ -349,7 +379,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         mock_instance.messages.create.return_value = mock_message
 
         # Test
-        config = {"api_key": "test_key", "model": "claude-sonnet-4-6"}
+        config = {"model": "claude-sonnet-4-6"}
         client = AnthropicClient(config)
         msg, usage = client.generate_commit_message("prompt")
 
@@ -363,8 +393,17 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
 
     @patch('komitto.llm.anthropic_client.anthropic.AsyncAnthropic')
     @patch('komitto.llm.anthropic_client.anthropic.Anthropic')
+    def test_anthropic_client_uses_custom_api_key_environment(self, mock_anthropic, mock_async_anthropic):
+        with patch.dict(os.environ, {"CUSTOM_ANTHROPIC_KEY": "anthropic-key"}, clear=False):
+            AnthropicClient({"api_key_env": "CUSTOM_ANTHROPIC_KEY"})
+
+        self.assertEqual(mock_anthropic.call_args.kwargs["api_key"], "anthropic-key")
+        self.assertEqual(mock_async_anthropic.call_args.kwargs["api_key"], "anthropic-key")
+
+    @patch('komitto.llm.anthropic_client.anthropic.AsyncAnthropic')
+    @patch('komitto.llm.anthropic_client.anthropic.Anthropic')
     def test_anthropic_client_uses_configured_timeout(self, mock_anthropic, mock_async_anthropic):
-        AnthropicClient({"api_key": "test_key", "model": "claude-sonnet-4-6", "timeout": 45})
+        AnthropicClient({"model": "claude-sonnet-4-6", "timeout": 45})
 
         self.assertEqual(mock_anthropic.call_args.kwargs["timeout"], 45)
         self.assertEqual(mock_async_anthropic.call_args.kwargs["timeout"], 45)
@@ -379,7 +418,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
     def test_create_llm_client_openai(self, mock_openai):
         """openai プロバイダで OpenAIClient が正しく作成されることをテスト"""
         from komitto.llm.factory import create_llm_client
-        client = create_llm_client({"provider": "openai", "api_key": "test"})
+        client = create_llm_client({"provider": "openai"})
         self.assertEqual(client.__class__.__name__, "OpenAIClient")
 
     @patch('komitto.llm.gemini_client.genai')
@@ -410,7 +449,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         # createが例外を投げるように設定
         mock_instance.chat.completions.create.side_effect = Exception("API connection timeout")
 
-        config = {"api_key": "test_key", "model": "gpt-5.4-mini"}
+        config = {"model": "gpt-5.4-mini"}
         client = OpenAIClient(config)
         with self.assertRaises(Exception) as ctx:
             client.generate_commit_message("prompt")
@@ -440,7 +479,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         
         mock_stream_ctx.__aenter__.return_value.get_final_message.return_value = mock_final_msg
 
-        config = {"api_key": "test_key", "model": "claude-sonnet-4-6"}
+        config = {"model": "claude-sonnet-4-6"}
         client = AnthropicClient(config)
         chunks = []
         async for chunk in client.stream_commit_message_async("prompt"):
@@ -465,7 +504,7 @@ class TestLLMClients(unittest.IsolatedAsyncioTestCase):
         
         mock_instance.close = AsyncMock()
         
-        config = {"api_key": "test_key"}
+        config = {}
         client = AnthropicClient(config)
         await client.aclose()
         mock_instance.close.assert_called_once()

@@ -27,7 +27,7 @@
         "instruction_comment": "# --- komitto interactive mode ---\n# コミットメッセージを編集してください。\n# '#' で始まる行は最終的なメッセージから除外されます。"
     },
     "config": {
-        "init_exists": "⚠️ komitto.toml already exists in the current directory.",
+        "init_exists": "⚠️ komitto.json already exists in the current directory.",
         "init_created": "✅ Created {0}",
         "init_failed": "Error: Failed to create {0}: {1}",
         "load_warning": "Warning: Failed to load config from {0}: {1}",
@@ -42,17 +42,16 @@
         "user_context_instruction": "ユーザーメモ: {0}"
     },
     "learn": {
-        "no_config_file": "⚠️  komitto.toml が見つかりません。まず 'komitto init' を実行してLLM設定を行ってください。",
         "no_history": "警告: コミット履歴が見つかりません（またはgitリポジトリではありません）。スタイルの学習ができません。",
         "analyzing": "直近 {0} 件のコミットを分析中...",
         "analyzing_status": "AIがスタイルを分析しています...",
         "suggested_prompt_title": "提案されたシステムプロンプト",
         "apply_instruction_title": "このスタイルを適用するには:",
-        "apply_instruction_step0": "0. 設定ファイルがない場合は 'komitto init' で作成します。",
-        "apply_instruction_step1": "1. 'komitto.toml' を開きます",
-        "apply_instruction_step2": "2. '[prompt]' セクションの 'system' キーを更新してください。",
-        "apply_instruction_note": "注: 安全のため、このコマンドは設定ファイルを自動的に書き換えません。",
-        "auto_init_prompt": "💾 このプロンプトを komitto.toml に設定しますか？",
+        "apply_instruction_step0": "0. 'komitto init' を実行してリポジトリ用プロンプトファイルを作成します。",
+        "apply_instruction_step1": "1. ~/.config/komitto/repos/ 配下のリポジトリ用 system.md を開きます",
+        "apply_instruction_step2": "2. 内容を提案されたプロンプトに置き換えます。",
+        "apply_instruction_note": "注: 安全のため、このコマンドはファイルを自動変更しません。",
+        "auto_init_prompt": "💾 このプロンプトをリポジトリ用プロンプトファイルに設定しますか？",
         "auto_init_yes": "✅ 設定を適用します...",
         "auto_init_no": "⚠️  設定の自動適用をスキップしました。",
         "auto_init_created": "✅ {0} を作成し、生成されたプロンプトを設定しました。",
