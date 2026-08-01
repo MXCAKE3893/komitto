@@ -80,7 +80,7 @@ The prompt itself should be written in the primary language of the commit histor
             refresh_per_second=5, 
             vertical_overflow="visible"
         ) as live:
-            for chunk, _ in client.stream_commit_message(analysis_prompt):
+            for chunk, _, _ in client.stream_commit_message(analysis_prompt):
                 if chunk:
                     suggestion += chunk
                     live.update(Panel(
